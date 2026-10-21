@@ -1,4 +1,5 @@
 import 'package:cifras/domain/music_transposition.dart';
+import 'package:cifras/domain/database_sync_service.dart';
 import 'package:cifras/domain/song.dart';
 import 'package:cifras/domain/song_repository.dart';
 import 'package:cifras/main.dart';
@@ -8,6 +9,49 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('detecta alterações locais, remotas e conflitos de sincronização', () {
+    expect(
+      determineDatabaseSyncAction(
+        localHash: 'local',
+        driveHash: null,
+        lastSyncHash: null,
+      ),
+      DatabaseSyncAction.uploadLocal,
+    );
+    expect(
+      determineDatabaseSyncAction(
+        localHash: 'common',
+        driveHash: 'remote',
+        lastSyncHash: 'common',
+      ),
+      DatabaseSyncAction.downloadDrive,
+    );
+    expect(
+      determineDatabaseSyncAction(
+        localHash: 'local',
+        driveHash: 'common',
+        lastSyncHash: 'common',
+      ),
+      DatabaseSyncAction.uploadLocal,
+    );
+    expect(
+      determineDatabaseSyncAction(
+        localHash: 'local',
+        driveHash: 'remote',
+        lastSyncHash: 'common',
+      ),
+      DatabaseSyncAction.conflict,
+    );
+    expect(
+      determineDatabaseSyncAction(
+        localHash: 'same',
+        driveHash: 'same',
+        lastSyncHash: null,
+      ),
+      DatabaseSyncAction.alreadySynced,
+    );
+  });
+
   test('compassos são separados e espaços excedentes são normalizados', () {
     expect(SongSection.parseMeasures(' Am   G/B | C | | F  Dm '), [
       'Am G/B',
@@ -128,6 +172,28 @@ void main() {
     );
   });
 
+  testWidgets('exibe a escolha de versão ao sincronizar', (tester) async {
+    final syncService = _FakeDatabaseSyncService();
+    await tester.pumpWidget(
+      CifrasApp(
+        repository: _MemorySongRepository(),
+        databaseSyncService: syncService,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Sincronizar com Google Drive'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Escolha o banco para sincronizar'), findsOneWidget);
+    await tester.tap(find.text('Enviar versão local'));
+    await tester.pumpAndSettle();
+
+    expect(syncService.choice, DatabaseSyncChoice.uploadLocal);
+    expect(find.text('Banco enviado ao Google Drive.'), findsOneWidget);
+  });
+
   testWidgets('favorita e desfavorita cifras na biblioteca', (tester) async {
     final repository = _MemorySongRepository();
     await repository.addSong(
@@ -162,6 +228,21 @@ void main() {
     );
     expect(find.byTooltip('Adicionar às favoritas'), findsOneWidget);
   });
+}
+
+class _FakeDatabaseSyncService implements DatabaseSyncService {
+  DatabaseSyncChoice? choice;
+
+  @override
+  Future<DatabaseSyncResult> synchronize({
+    required Future<DatabaseSyncChoice?> Function({required bool isFirstSync})
+    resolveConflict,
+  }) async {
+    choice = await resolveConflict(isFirstSync: true);
+    return choice == DatabaseSyncChoice.uploadLocal
+        ? DatabaseSyncResult.uploaded
+        : DatabaseSyncResult.cancelled;
+  }
 }
 
 class _MemorySongRepository implements SongRepository {

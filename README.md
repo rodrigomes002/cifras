@@ -22,6 +22,37 @@ pré-refrão, refrão, ponte, solo e final, e distribua os acordes por compassos
    extras podem ser removidos antes de salvar. Exemplo de acordes separados por
    compasso: `Am G/B | C | F Dm | E7`.
 4. As cifras ficam salvas localmente em SQLite no dispositivo.
+5. No Android, toque em **Sincronizar com Google Drive** para enviar ou
+   restaurar o banco. Na primeira sincronização e quando os dois lados tiverem
+   alterações, escolha qual versão manter; a outra versão será substituída.
+
+### Configurar o Google Drive (Android)
+
+1. No Google Cloud Console, crie ou selecione um projeto e habilite a **Google
+   Drive API**.
+2. Configure a tela de consentimento OAuth e crie clientes OAuth para Android
+   (application ID definido em `android/app/build.gradle.kts` e SHA-1 da chave
+   de assinatura) e Web.
+3. Crie um arquivo `.env` na raiz do projeto com o client ID OAuth Web:
+
+   ```json
+   {
+     "GOOGLE_SERVER_CLIENT_ID": "SEU_CLIENT_ID_WEB"
+   }
+   ```
+
+   O arquivo `.env` é ignorado pelo Git. Inicie o app com:
+
+   ```sh
+   flutter run --dart-define-from-file=.env
+   ```
+
+4. Para distribuição, cadastre também a impressão digital SHA-1 da chave de
+   produção. O client ID é público; não coloque client secrets no app.
+
+O aplicativo usa o escopo `drive.file` e grava um arquivo `cifras.db` na raiz
+do Drive da conta escolhida. A autenticação e a habilitação da API precisam
+estar configuradas no Google Cloud antes de sincronizar.
 
 ## Executar
 

@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../domain/database_sync_service.dart';
 import '../domain/music_transposition.dart';
 import '../domain/song.dart';
 import '../theme/app_theme.dart';
@@ -44,9 +47,14 @@ const _chordQualities = {
 };
 
 class SongLibraryScreen extends StatefulWidget {
-  const SongLibraryScreen({super.key, required this.viewModel});
+  const SongLibraryScreen({
+    super.key,
+    required this.viewModel,
+    this.databaseSyncService,
+  });
 
   final SongLibraryViewModel viewModel;
+  final DatabaseSyncService? databaseSyncService;
 
   @override
   State<SongLibraryScreen> createState() => _SongLibraryScreenState();
@@ -54,6 +62,7 @@ class SongLibraryScreen extends StatefulWidget {
 
 class _SongLibraryScreenState extends State<SongLibraryScreen> {
   String _search = '';
+  bool _isSyncing = false;
 
   Future<void> _createSong() async {
     final song = await showModalBottomSheet<NewSong>(
@@ -84,6 +93,94 @@ class _SongLibraryScreenState extends State<SongLibraryScreen> {
     );
   }
 
+  Future<void> _syncDatabase() async {
+    final service = widget.databaseSyncService;
+    if (service == null || _isSyncing) return;
+
+    setState(() => _isSyncing = true);
+    unawaited(
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => PopScope(
+          canPop: false,
+          child: const AlertDialog(
+            content: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.cloud_sync_outlined),
+                SizedBox(width: 12),
+                Flexible(child: Text('Sincronizando com Google Drive...')),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    DatabaseSyncResult? result;
+    Object? syncError;
+    try {
+      result = await service.synchronize(
+        resolveConflict: ({required isFirstSync}) =>
+            showDialog<DatabaseSyncChoice>(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => AlertDialog(
+                title: Text(
+                  isFirstSync
+                      ? 'Escolha o banco para sincronizar'
+                      : 'As cifras foram alteradas nos dois lados',
+                ),
+                content: Text(
+                  isFirstSync
+                      ? 'Já existe um banco no Google Drive. Escolha qual versão manter.'
+                      : 'Escolha qual versão manter. A outra será substituída.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancelar'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(
+                      context,
+                      DatabaseSyncChoice.downloadDrive,
+                    ),
+                    child: const Text('Usar versão do Drive'),
+                  ),
+                  FilledButton(
+                    onPressed: () =>
+                        Navigator.pop(context, DatabaseSyncChoice.uploadLocal),
+                    child: const Text('Enviar versão local'),
+                  ),
+                ],
+              ),
+            ),
+      );
+      await widget.viewModel.load();
+    } catch (error) {
+      syncError = error;
+      await widget.viewModel.load();
+    } finally {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        setState(() => _isSyncing = false);
+      }
+    }
+    if (!mounted) return;
+    if (syncError != null) {
+      _showError('Não foi possível sincronizar com o Google Drive: $syncError');
+      return;
+    }
+    final message = switch (result!) {
+      DatabaseSyncResult.uploaded => 'Banco enviado ao Google Drive.',
+      DatabaseSyncResult.downloaded => 'Banco restaurado do Google Drive.',
+      DatabaseSyncResult.alreadySynced => 'O banco já está sincronizado.',
+      DatabaseSyncResult.cancelled => null,
+    };
+    if (message != null) _showError(message);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -99,6 +196,14 @@ class _SongLibraryScreenState extends State<SongLibraryScreen> {
             ),
           ],
         ),
+        actions: [
+          if (widget.databaseSyncService != null)
+            IconButton(
+              tooltip: 'Sincronizar com Google Drive',
+              onPressed: _isSyncing ? null : _syncDatabase,
+              icon: const Icon(Icons.cloud_sync_outlined),
+            ),
+        ],
       ),
       body: AnimatedBuilder(
         animation: widget.viewModel,
@@ -243,7 +348,7 @@ class _SongLibraryScreenState extends State<SongLibraryScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _createSong,
+        onPressed: _isSyncing ? null : _createSong,
         icon: const Icon(Icons.add),
         label: const Text('Nova cifra'),
       ),
