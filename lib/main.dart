@@ -4,6 +4,7 @@ import 'data/sqlite_song_repository.dart';
 import 'domain/song_repository.dart';
 import 'presentation/song_library_view_model.dart';
 import 'presentation/song_screens.dart';
+import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,38 +37,10 @@ class _CifrasAppState extends State<CifrasApp> {
 
   @override
   Widget build(BuildContext context) {
-    const seed = Color(0xFF315C4D);
     return MaterialApp(
       title: 'Cifras',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: seed,
-          surface: const Color(0xFFF7F7F2),
-        ),
-        scaffoldBackgroundColor: const Color(0xFFF7F7F2),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFFF7F7F2),
-          surfaceTintColor: Colors.transparent,
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: Color(0xFFE5E8E2)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: seed, width: 1.5),
-          ),
-        ),
-      ),
+      theme: AppTheme.light,
       home: SongLibraryScreen(viewModel: _viewModel),
     );
   }

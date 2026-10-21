@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../domain/music_transposition.dart';
 import '../domain/song.dart';
+import '../theme/app_theme.dart';
+import 'cifras_logo.dart';
 import 'song_library_view_model.dart';
 
 const _sectionNames = [
@@ -81,19 +83,7 @@ class _SongLibraryScreenState extends State<SongLibraryScreen> {
         titleSpacing: 22,
         title: Row(
           children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.music_note,
-                color: Colors.white,
-                size: 22,
-              ),
-            ),
+            const CifrasLogo(),
             const SizedBox(width: 10),
             const Text(
               'cifras',
@@ -130,7 +120,7 @@ class _SongLibraryScreenState extends State<SongLibraryScreen> {
                 Text(
                   'Só acordes e estrutura. Sem letras.',
                   style: Theme.of(context).textTheme.bodyLarge
-                      ?.copyWith(color: const Color(0xFF747B75)),
+                      ?.copyWith(color: AppColors.muted),
                 ),
                 const SizedBox(height: 24),
                 _RepertoireSummary(
@@ -172,14 +162,14 @@ class _SongLibraryScreenState extends State<SongLibraryScreen> {
                             ?.copyWith(
                               fontWeight: FontWeight.w800,
                               letterSpacing: 1.2,
-                              color: const Color(0xFF747B75),
+                              color: AppColors.muted,
                             ),
                       ),
                       const Spacer(),
                       Text(
                         '${songs.length}',
                         style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(color: const Color(0xFF747B75)),
+                            ?.copyWith(color: AppColors.muted),
                       ),
                     ],
                   ),
@@ -341,7 +331,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
                 Text(
                   song.artist,
                   style: Theme.of(context).textTheme.titleMedium
-                      ?.copyWith(color: const Color(0xFF747B75)),
+                      ?.copyWith(color: AppColors.muted),
                 ),
               ],
               const SizedBox(height: 20),
@@ -361,7 +351,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
                     child: Text(
                       '${song.sections.length} ${song.sections.length == 1 ? 'seção' : 'seções'}',
                       style: Theme.of(context).textTheme.bodyMedium
-                          ?.copyWith(color: const Color(0xFF747B75)),
+                          ?.copyWith(color: AppColors.muted),
                     ),
                   ),
                 ],
@@ -422,9 +412,8 @@ class _SongKeySelector extends StatelessWidget {
               selectedKey ?? '—',
               key: const ValueKey('song-key-current'),
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w800),
             ),
           ),
         ),
@@ -453,7 +442,7 @@ class _RepertoireSummary extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFFE8EFE8),
+        color: AppColors.softGreen,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -515,10 +504,10 @@ class _SongTile extends StatelessWidget {
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF0F3EE),
+                  color: AppColors.paleGreen,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(Icons.music_note, color: Color(0xFF315C4D)),
+                child: const Icon(Icons.music_note, color: AppColors.forest),
               ),
               const SizedBox(width: 13),
               Expanded(
@@ -540,7 +529,7 @@ class _SongTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodyMedium
-                          ?.copyWith(color: const Color(0xFF747B75)),
+                          ?.copyWith(color: AppColors.muted),
                     ),
                   ],
                 ),
@@ -554,12 +543,12 @@ class _SongTile extends StatelessWidget {
                   Text(
                     '${song.sections.length} ${song.sections.length == 1 ? 'parte' : 'partes'}',
                     style: Theme.of(context).textTheme.labelSmall
-                        ?.copyWith(color: const Color(0xFF747B75)),
+                        ?.copyWith(color: AppColors.muted),
                   ),
                 ],
               ),
               const SizedBox(width: 2),
-              const Icon(Icons.chevron_right, color: Color(0xFF909891)),
+              const Icon(Icons.chevron_right, color: AppColors.chevron),
             ],
           ),
         ),
@@ -578,15 +567,13 @@ class _KeyBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: const Color(0xFFE8EFE8),
+        color: AppColors.softGreen,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         label,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: const Color(0xFF315C4D),
-          fontWeight: FontWeight.w800,
-        ),
+        style: Theme.of(context).textTheme.labelMedium
+            ?.copyWith(color: AppColors.forest, fontWeight: FontWeight.w800),
       ),
     );
   }
@@ -627,7 +614,7 @@ class _SongMetadata extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: const Color(0xFF747B75),
+                        color: AppColors.muted,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
                       ),
@@ -674,7 +661,7 @@ class _MetadataCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: const Color(0xFF747B75),
+              color: AppColors.muted,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.5,
             ),
@@ -692,10 +679,7 @@ class _MetadataCard extends StatelessWidget {
 }
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({
-    required this.section,
-    required this.onDelete,
-  });
+  const _SectionCard({required this.section, required this.onDelete});
 
   final SongSection section;
   final VoidCallback onDelete;
@@ -717,13 +701,13 @@ class _SectionCard extends StatelessWidget {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE8EFE8),
+                  color: AppColors.softGreen,
                   borderRadius: BorderRadius.circular(11),
                 ),
                 child: const Icon(
                   Icons.segment,
                   size: 19,
-                  color: Color(0xFF315C4D),
+                  color: AppColors.forest,
                 ),
               ),
               const SizedBox(width: 10),
@@ -739,7 +723,7 @@ class _SectionCard extends StatelessWidget {
                     Text(
                       'Compasso: ${section.timeSignature}',
                       style: Theme.of(context).textTheme.bodySmall
-                          ?.copyWith(color: const Color(0xFF747B75)),
+                          ?.copyWith(color: AppColors.muted),
                     ),
                   ],
                 ),
@@ -747,7 +731,7 @@ class _SectionCard extends StatelessWidget {
               Text(
                 '${section.measures.length} c.',
                 style: Theme.of(context).textTheme.labelMedium
-                    ?.copyWith(color: const Color(0xFF747B75)),
+                    ?.copyWith(color: AppColors.muted),
               ),
               IconButton(
                 tooltip: 'Excluir seção',
@@ -798,7 +782,7 @@ class _MeasureCard extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 76),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F7F2),
+        color: AppColors.parchment,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -807,7 +791,7 @@ class _MeasureCard extends StatelessWidget {
           Text(
             'COMPASSO $number',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: const Color(0xFF747B75),
+              color: AppColors.muted,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.5,
             ),
@@ -816,7 +800,7 @@ class _MeasureCard extends StatelessWidget {
           Text(
             chords,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: const Color(0xFF315C4D),
+              color: AppColors.forest,
               fontWeight: FontWeight.w800,
               fontFamily: 'monospace',
             ),
@@ -842,13 +826,13 @@ class _EmptyLibrary extends StatelessWidget {
             width: 66,
             height: 66,
             decoration: BoxDecoration(
-              color: const Color(0xFFE8EFE8),
+              color: AppColors.softGreen,
               borderRadius: BorderRadius.circular(22),
             ),
             child: const Icon(
               Icons.library_music_outlined,
               size: 30,
-              color: Color(0xFF315C4D),
+              color: AppColors.forest,
             ),
           ),
           const SizedBox(height: 16),
@@ -888,7 +872,7 @@ class _EmptySections extends StatelessWidget {
       ),
       child: const Row(
         children: [
-          Icon(Icons.tips_and_updates_outlined, color: Color(0xFF315C4D)),
+          Icon(Icons.tips_and_updates_outlined, color: AppColors.forest),
           SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -1169,10 +1153,8 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
                     decoration: const InputDecoration(labelText: 'Nota'),
                     items: _chordRoots
                         .map(
-                          (root) => DropdownMenuItem(
-                            value: root,
-                            child: Text(root),
-                          ),
+                          (root) =>
+                              DropdownMenuItem(value: root, child: Text(root)),
                         )
                         .toList(growable: false),
                     onChanged: (value) {
@@ -1219,9 +1201,9 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF7F7F2),
+                  color: AppColors.parchment,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE5E8E2)),
+                  border: Border.all(color: AppColors.border),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1321,7 +1303,7 @@ class _FormSheetFrame extends StatelessWidget {
                   width: 38,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFD6DCD5),
+                    color: AppColors.border,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -1336,7 +1318,7 @@ class _FormSheetFrame extends StatelessWidget {
               Text(
                 subtitle,
                 style: Theme.of(context).textTheme.bodyMedium
-                    ?.copyWith(color: const Color(0xFF747B75)),
+                    ?.copyWith(color: AppColors.muted),
               ),
               const SizedBox(height: 20),
               child,

@@ -2,6 +2,8 @@ import 'package:cifras/domain/music_transposition.dart';
 import 'package:cifras/domain/song.dart';
 import 'package:cifras/domain/song_repository.dart';
 import 'package:cifras/main.dart';
+import 'package:cifras/presentation/cifras_logo.dart';
+import 'package:cifras/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -108,6 +110,22 @@ void main() {
 
     expect(find.text('A#m'), findsNWidgets(2));
     expect(find.text('C#'), findsOneWidget);
+  });
+
+  testWidgets('aplica a identidade visual e exibe a marca', (tester) async {
+    await tester.pumpWidget(CifrasApp(repository: _MemorySongRepository()));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CifrasLogo), findsOneWidget);
+    expect(
+      Theme.of(tester.element(find.text('cifras'))).colorScheme.primary,
+      AppColors.forest,
+    );
+    expect(
+      Theme.of(tester.element(find.text('Seu repertório')))
+          .scaffoldBackgroundColor,
+      AppColors.parchment,
+    );
   });
 }
 
