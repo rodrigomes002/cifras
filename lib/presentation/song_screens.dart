@@ -810,39 +810,20 @@ class _SongMetadata extends StatelessWidget {
           children: [
             SizedBox(
               width: width,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 14,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'TOM',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppColors.muted,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    _SongKeySelector(song: song, onChanged: onKeyChanged),
-                  ],
-                ),
+              child: _MetadataCard(
+                label: 'TOM',
+                content: _SongKeySelector(song: song, onChanged: onKeyChanged),
               ),
             ),
             SizedBox(
               width: width,
               child: _MetadataCard(
                 label: 'ANDAMENTO',
-                value: song.tempo == null ? '—' : '${song.tempo} BPM',
+                content: Text(
+                  song.tempo == null ? '—' : '${song.tempo} BPM',
+                  style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
               ),
             ),
           ],
@@ -853,10 +834,10 @@ class _SongMetadata extends StatelessWidget {
 }
 
 class _MetadataCard extends StatelessWidget {
-  const _MetadataCard({required this.label, required this.value});
+  const _MetadataCard({required this.label, required this.content});
 
   final String label;
-  final String value;
+  final Widget content;
 
   @override
   Widget build(BuildContext context) {
@@ -880,10 +861,12 @@ class _MetadataCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 5),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w800),
+          SizedBox(
+            height: 28,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: content,
+            ),
           ),
         ],
       ),

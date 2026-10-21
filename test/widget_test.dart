@@ -156,6 +156,33 @@ void main() {
     expect(find.text('C#'), findsOneWidget);
   });
 
+  testWidgets('mantém os cards de tom e andamento com a mesma altura', (
+    tester,
+  ) async {
+    final repository = _MemorySongRepository();
+    await repository.addSong(
+      const NewSong(
+        title: 'Canção teste',
+        artist: '',
+        key: 'Am',
+        tempo: null,
+        timeSignature: '4/4',
+      ),
+    );
+    await tester.pumpWidget(CifrasApp(repository: repository));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Canção teste'));
+    await tester.pumpAndSettle();
+
+    final keyCard = find
+        .ancestor(of: find.text('TOM'), matching: find.byType(Container))
+        .first;
+    final tempoCard = find
+        .ancestor(of: find.text('ANDAMENTO'), matching: find.byType(Container))
+        .first;
+    expect(tester.getSize(keyCard).height, tester.getSize(tempoCard).height);
+  });
+
   testWidgets('aplica a identidade visual e exibe a marca', (tester) async {
     await tester.pumpWidget(CifrasApp(repository: _MemorySongRepository()));
     await tester.pumpAndSettle();
