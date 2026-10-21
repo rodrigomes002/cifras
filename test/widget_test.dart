@@ -53,11 +53,16 @@ void main() {
     expect(find.text('COMPASSO'), findsNothing);
     await tester.tap(find.text('Adicionar seção'));
     await tester.pumpAndSettle();
+    expect(find.text('3/4'), findsOneWidget);
     await tester.tap(find.byType(DropdownButtonFormField<String>).at(1));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('5/4').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<String>).at(2));
     await tester.pumpAndSettle();
     await tester.tap(find.text('A').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(DropdownButtonFormField<String>).at(2));
+    await tester.tap(find.byType(DropdownButtonFormField<String>).at(3));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Menor').last);
     await tester.pumpAndSettle();
@@ -65,24 +70,36 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Novo compasso'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(DropdownButtonFormField<String>).at(1));
+    await tester.tap(find.byType(DropdownButtonFormField<String>).at(2));
     await tester.pumpAndSettle();
     await tester.tap(find.text('C').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(DropdownButtonFormField<String>).at(2));
+    await tester.tap(find.byType(DropdownButtonFormField<String>).at(3));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Maior').last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Adicionar acorde ao compasso'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Novo compasso'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<String>).at(2));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('D').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Adicionar acorde ao compasso'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Remover compasso').last);
+    await tester.pumpAndSettle();
+    expect(find.text('COMPASSO 3'), findsNothing);
     await tester.tap(find.text('Salvar seção'));
     await tester.pumpAndSettle();
 
     expect(find.text('Intro'), findsOneWidget);
-    expect(find.text('Compasso: 3/4'), findsOneWidget);
+    expect(find.text('Compasso: 5/4'), findsOneWidget);
     expect(find.text('COMPASSO 1'), findsOneWidget);
     expect(find.text('Am'), findsOneWidget);
     expect(find.text('C'), findsOneWidget);
+    expect(find.text('D'), findsNothing);
     expect(find.text('COMPASSO 2'), findsOneWidget);
     expect(find.textContaining('letra'), findsNothing);
 
@@ -139,6 +156,7 @@ class _MemorySongRepository implements SongRepository {
                 ? section.measures
                 : transposeMeasures(section.measures, interval),
             position: section.position,
+            timeSignature: section.timeSignature,
           ),
       ],
     );
@@ -161,6 +179,7 @@ class _MemorySongRepository implements SongRepository {
         title: section.title,
         measures: section.measures,
         position: sections.length,
+        timeSignature: section.timeSignature,
       ),
     );
     _songs[index] = Song(

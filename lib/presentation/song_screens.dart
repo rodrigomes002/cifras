@@ -14,6 +14,8 @@ const _sectionNames = [
   'Final',
 ];
 
+const _timeSignatures = ['2/4', '3/4', '4/4', '5/4', '6/8', '7/8', '12/8'];
+
 const _chordRoots = [
   'C',
   'C#',
@@ -232,7 +234,11 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
     final section = await showModalBottomSheet<NewSection>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => const _SectionFormSheet(),
+      builder: (_) => _SectionFormSheet(
+        initialTimeSignature: widget.viewModel.songs
+            .firstWhere((song) => song.id == widget.songId)
+            .timeSignature,
+      ),
     );
     if (section == null || !mounted) return;
 
@@ -369,7 +375,6 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _SectionCard(
                       section: section,
-                      timeSignature: song.timeSignature,
                       onDelete: () => _deleteSection(section),
                     ),
                   ),
@@ -689,12 +694,10 @@ class _MetadataCard extends StatelessWidget {
 class _SectionCard extends StatelessWidget {
   const _SectionCard({
     required this.section,
-    required this.timeSignature,
     required this.onDelete,
   });
 
   final SongSection section;
-  final String timeSignature;
   final VoidCallback onDelete;
 
   @override
@@ -734,7 +737,7 @@ class _SectionCard extends StatelessWidget {
                           ?.copyWith(fontWeight: FontWeight.w800),
                     ),
                     Text(
-                      'Compasso: $timeSignature',
+                      'Compasso: ${section.timeSignature}',
                       style: Theme.of(context).textTheme.bodySmall
                           ?.copyWith(color: const Color(0xFF747B75)),
                     ),
@@ -1042,15 +1045,14 @@ class _SongFormSheetState extends State<_SongFormSheet> {
                 labelText: 'Fórmula de compasso',
                 helperText: 'Quantidade e tipo de tempos em cada compasso.',
               ),
-              items: const [
-                DropdownMenuItem(value: '2/4', child: Text('2/4')),
-                DropdownMenuItem(value: '3/4', child: Text('3/4')),
-                DropdownMenuItem(value: '4/4', child: Text('4/4')),
-                DropdownMenuItem(value: '5/4', child: Text('5/4')),
-                DropdownMenuItem(value: '6/8', child: Text('6/8')),
-                DropdownMenuItem(value: '7/8', child: Text('7/8')),
-                DropdownMenuItem(value: '12/8', child: Text('12/8')),
-              ],
+              items: _timeSignatures
+                  .map(
+                    (signature) => DropdownMenuItem(
+                      value: signature,
+                      child: Text(signature),
+                    ),
+                  )
+                  .toList(growable: false),
               onChanged: (value) {
                 if (value != null) setState(() => _timeSignature = value);
               },
@@ -1063,7 +1065,9 @@ class _SongFormSheetState extends State<_SongFormSheet> {
 }
 
 class _SectionFormSheet extends StatefulWidget {
-  const _SectionFormSheet();
+  const _SectionFormSheet({required this.initialTimeSignature});
+
+  final String initialTimeSignature;
 
   @override
   State<_SectionFormSheet> createState() => _SectionFormSheetState();
@@ -1073,6 +1077,7 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
   final _formKey = GlobalKey<FormState>();
   final List<List<String>> _measures = [[]];
   String _sectionName = _sectionNames.first;
+  late String _timeSignature = widget.initialTimeSignature;
   String _chordRoot = _chordRoots.first;
   String _chordQuality = _chordQualities.keys.first;
   String? _validationError;
@@ -1090,6 +1095,10 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
     setState(() => _measures.add([]));
   }
 
+  void _removeMeasure(int index) {
+    setState(() => _measures.removeAt(index));
+  }
+
   void _save() {
     if (!_formKey.currentState!.validate()) return;
     if (!_hasChords) {
@@ -1100,6 +1109,7 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
       context,
       NewSection(
         title: _sectionName,
+        timeSignature: _timeSignature,
         measures: _measures
             .where((measure) => measure.isNotEmpty)
             .map((measure) => measure.join(' '))
@@ -1130,6 +1140,24 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
                   .toList(growable: false),
               onChanged: (value) {
                 if (value != null) setState(() => _sectionName = value);
+              },
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _timeSignature,
+              decoration: const InputDecoration(
+                labelText: 'Fórmula de compasso',
+              ),
+              items: _timeSignatures
+                  .map(
+                    (signature) => DropdownMenuItem(
+                      value: signature,
+                      child: Text(signature),
+                    ),
+                  )
+                  .toList(growable: false),
+              onChanged: (value) {
+                if (value != null) setState(() => _timeSignature = value);
               },
             ),
             const SizedBox(height: 12),
@@ -1198,10 +1226,23 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'COMPASSO ${index + 1}',
-                      style: Theme.of(context).textTheme.labelMedium
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'COMPASSO ${index + 1}',
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        if (_measures.length > 1)
+                          IconButton(
+                            tooltip: 'Remover compasso',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () => _removeMeasure(index),
+                            icon: const Icon(Icons.delete_outline, size: 19),
+                          ),
+                      ],
                     ),
                     if (_measures[index].isEmpty)
                       const Padding(

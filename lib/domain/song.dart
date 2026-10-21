@@ -25,6 +25,7 @@ class SongSection {
     required this.title,
     required this.measures,
     required this.position,
+    this.timeSignature = '4/4',
   });
 
   final int? id;
@@ -32,6 +33,7 @@ class SongSection {
   final String title;
   final List<String> measures;
   final int position;
+  final String timeSignature;
 
   static List<String> parseMeasures(String input) => input
       .split('|')
@@ -57,8 +59,13 @@ class NewSong {
 }
 
 class NewSection {
-  const NewSection({required this.title, required this.measures});
+  const NewSection({
+    required this.title,
+    required this.measures,
+    this.timeSignature = '4/4',
+  });
 
   final String title;
   final List<String> measures;
+  final String timeSignature;
 }

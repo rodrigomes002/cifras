@@ -17,7 +17,7 @@ class SqliteSongRepository implements SongRepository {
     final databasePath = path.join(await getDatabasesPath(), 'cifras.db');
     final openedDatabase = await openDatabase(
       databasePath,
-      version: 2,
+      version: 3,
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: (db, version) async {
         await db.execute('''
@@ -37,6 +37,7 @@ class SqliteSongRepository implements SongRepository {
             title TEXT NOT NULL,
             measures TEXT NOT NULL,
             position INTEGER NOT NULL,
+            time_signature TEXT NOT NULL DEFAULT '4/4',
             FOREIGN KEY (song_id) REFERENCES songs (id) ON DELETE CASCADE
           )
         ''');
@@ -46,6 +47,19 @@ class SqliteSongRepository implements SongRepository {
           await db.execute(
             "ALTER TABLE songs ADD COLUMN time_signature TEXT NOT NULL DEFAULT '4/4'",
           );
+        }
+        if (oldVersion < 3) {
+          await db.execute(
+            "ALTER TABLE sections ADD COLUMN time_signature TEXT NOT NULL DEFAULT '4/4'",
+          );
+          await db.execute('''
+            UPDATE sections
+            SET time_signature = (
+              SELECT time_signature
+              FROM songs
+              WHERE songs.id = sections.song_id
+            )
+          ''');
         }
       },
     );
@@ -72,6 +86,7 @@ class SqliteSongRepository implements SongRepository {
                   measures: (jsonDecode(section['measures']! as String) as List)
                       .cast<String>(),
                   position: section['position']! as int,
+                  timeSignature: section['time_signature']! as String,
                 ),
               )
               .toList(growable: false);
@@ -179,6 +194,7 @@ class SqliteSongRepository implements SongRepository {
       'title': section.title,
       'measures': jsonEncode(section.measures),
       'position': position,
+      'time_signature': section.timeSignature,
     });
   }
 
