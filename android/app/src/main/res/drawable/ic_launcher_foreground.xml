@@ -22,8 +22,8 @@
         android:pathData="M44,68V38 M64,55V32 M44,38l20,-6" />
     <path
         android:fillColor="#F1B85B"
-        android:pathData="M31,69c0,-4 7,-8 15,-8s14,2 14,6 -7,8 -15,8 -14,-2 -14,-6z" />
+        android:pathData="M53,68a7.5,7.5 0,1 1,-15 0a7.5,7.5 0,1 1,15 0" />
     <path
         android:fillColor="#F1B85B"
-        android:pathData="M51,56c0,-4 7,-8 15,-8s14,2 14,6 -7,8 -15,8 -14,-2 -14,-6z" />
+        android:pathData="M73,55a7.5,7.5 0,1 1,-15 0a7.5,7.5 0,1 1,15 0" />
 </vector>

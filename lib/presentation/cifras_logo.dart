@@ -63,14 +63,7 @@ class _MusicMarkPainter extends CustomPainter {
       ..color = accent
       ..style = PaintingStyle.fill;
     for (final center in [const Offset(9, 18), const Offset(16, 15)]) {
-      canvas.save();
-      canvas.translate(center.dx, center.dy);
-      canvas.rotate(-0.38);
-      canvas.drawOval(
-        Rect.fromCenter(center: Offset.zero, width: 6.5, height: 4.5),
-        noteHeadPaint,
-      );
-      canvas.restore();
+      canvas.drawCircle(center, 2.6, noteHeadPaint);
     }
     canvas.restore();
   }
