@@ -17,7 +17,7 @@ class SqliteSongRepository implements SongRepository {
     final databasePath = path.join(await getDatabasesPath(), 'cifras.db');
     final openedDatabase = await openDatabase(
       databasePath,
-      version: 3,
+      version: 4,
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: (db, version) async {
         await db.execute('''
@@ -27,7 +27,8 @@ class SqliteSongRepository implements SongRepository {
             artist TEXT NOT NULL,
             song_key TEXT NOT NULL,
             tempo INTEGER,
-            time_signature TEXT NOT NULL DEFAULT '4/4'
+            time_signature TEXT NOT NULL DEFAULT '4/4',
+            is_favorite INTEGER NOT NULL DEFAULT 0
           )
         ''');
         await db.execute('''
@@ -60,6 +61,11 @@ class SqliteSongRepository implements SongRepository {
               WHERE songs.id = sections.song_id
             )
           ''');
+        }
+        if (oldVersion < 4) {
+          await db.execute(
+            'ALTER TABLE songs ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0',
+          );
         }
       },
     );
@@ -98,6 +104,7 @@ class SqliteSongRepository implements SongRepository {
             key: row['song_key']! as String,
             tempo: row['tempo'] as int?,
             timeSignature: row['time_signature']! as String,
+            isFavorite: row['is_favorite'] == 1,
             sections: sections,
           );
         })
@@ -150,9 +157,7 @@ class SqliteSongRepository implements SongRepository {
               .cast<String>();
           await transaction.update(
             'sections',
-            {
-              'measures': jsonEncode(transposeMeasures(measures, interval)),
-            },
+            {'measures': jsonEncode(transposeMeasures(measures, interval))},
             where: 'id = ?',
             whereArgs: [section['id']],
           );
@@ -166,6 +171,20 @@ class SqliteSongRepository implements SongRepository {
         whereArgs: [songId],
       );
     });
+  }
+
+  @override
+  Future<void> setSongFavorite(int songId, bool isFavorite) async {
+    final db = await _db;
+    final updatedRows = await db.update(
+      'songs',
+      {'is_favorite': isFavorite ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [songId],
+    );
+    if (updatedRows == 0) {
+      throw StateError('A cifra $songId não foi encontrada.');
+    }
   }
 
   @override

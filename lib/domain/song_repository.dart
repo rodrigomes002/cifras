@@ -7,6 +7,8 @@ abstract interface class SongRepository {
 
   Future<void> changeSongKey(int songId, String key);
 
+  Future<void> setSongFavorite(int songId, bool isFavorite);
+
   Future<void> deleteSong(int songId);
 
   Future<void> addSection(int songId, NewSection section);

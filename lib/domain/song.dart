@@ -6,6 +6,7 @@ class Song {
     required this.key,
     required this.tempo,
     this.timeSignature = '4/4',
+    this.isFavorite = false,
     this.sections = const [],
   });
 
@@ -15,6 +16,7 @@ class Song {
   final String key;
   final int? tempo;
   final String timeSignature;
+  final bool isFavorite;
   final List<SongSection> sections;
 }
 

@@ -35,6 +35,11 @@ class SongLibraryViewModel extends ChangeNotifier {
     await load();
   }
 
+  Future<void> setSongFavorite(int songId, bool isFavorite) async {
+    await _repository.setSongFavorite(songId, isFavorite);
+    await load();
+  }
+
   Future<void> deleteSong(int songId) async {
     await _repository.deleteSong(songId);
     await load();

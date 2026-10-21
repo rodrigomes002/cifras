@@ -70,6 +70,14 @@ class _SongLibraryScreenState extends State<SongLibraryScreen> {
     }
   }
 
+  Future<void> _setSongFavorite(Song song, bool isFavorite) async {
+    try {
+      await widget.viewModel.setSongFavorite(song.id!, isFavorite);
+    } catch (error) {
+      _showError('Não foi possível atualizar a favorita: $error');
+    }
+  }
+
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
@@ -95,13 +103,19 @@ class _SongLibraryScreenState extends State<SongLibraryScreen> {
       body: AnimatedBuilder(
         animation: widget.viewModel,
         builder: (context, _) {
-          final songs = widget.viewModel.songs
+          final filteredSongs = widget.viewModel.songs
               .where((song) {
                 final query = _search.trim().toLowerCase();
                 return query.isEmpty ||
                     song.title.toLowerCase().contains(query) ||
                     song.artist.toLowerCase().contains(query);
               })
+              .toList(growable: false);
+          final favoriteSongs = filteredSongs
+              .where((song) => song.isFavorite)
+              .toList(growable: false);
+          final otherSongs = filteredSongs
+              .where((song) => !song.isFavorite)
               .toList(growable: false);
 
           return RefreshIndicator(
@@ -146,50 +160,82 @@ class _SongLibraryScreenState extends State<SongLibraryScreen> {
                     error: widget.viewModel.loadError!,
                     onRetry: widget.viewModel.load,
                   )
-                else if (songs.isEmpty && widget.viewModel.songs.isEmpty)
+                else if (filteredSongs.isEmpty &&
+                    widget.viewModel.songs.isEmpty)
                   _EmptyLibrary(onAdd: _createSong)
-                else if (songs.isEmpty)
+                else if (filteredSongs.isEmpty)
                   const Padding(
                     padding: EdgeInsets.all(24),
                     child: Center(child: Text('Nenhuma música encontrada.')),
                   )
                 else ...[
-                  Row(
-                    children: [
-                      Text(
-                        'MÚSICAS',
-                        style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.2,
-                              color: AppColors.muted,
-                            ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        '${songs.length}',
-                        style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(color: AppColors.muted),
-                      ),
-                    ],
+                  _SongGroupHeading(
+                    title: 'FAVORITAS',
+                    count: favoriteSongs.length,
                   ),
                   const SizedBox(height: 10),
-                  ...songs.map(
-                    (song) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _SongTile(
-                        song: song,
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => SongDetailScreen(
-                              viewModel: widget.viewModel,
-                              songId: song.id!,
+                  if (favoriteSongs.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(2, 0, 2, 18),
+                      child: Text(
+                        _search.trim().isEmpty
+                            ? 'Toque no coração de uma cifra para adicioná-la aqui.'
+                            : 'Nenhuma favorita encontrada.',
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(color: AppColors.muted),
+                      ),
+                    )
+                  else
+                    ...favoriteSongs.map(
+                      (song) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _SongTile(
+                          song: song,
+                          onToggleFavorite: () => _setSongFavorite(song, false),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => SongDetailScreen(
+                                viewModel: widget.viewModel,
+                                songId: song.id!,
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
+                  const SizedBox(height: 8),
+                  _SongGroupHeading(
+                    title: 'OUTRAS CIFRAS',
+                    count: otherSongs.length,
                   ),
+                  const SizedBox(height: 10),
+                  if (otherSongs.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(2, 0, 2, 18),
+                      child: Text(
+                        'Todas as cifras estão nas favoritas.',
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(color: AppColors.muted),
+                      ),
+                    )
+                  else
+                    ...otherSongs.map(
+                      (song) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _SongTile(
+                          song: song,
+                          onToggleFavorite: () => _setSongFavorite(song, true),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => SongDetailScreen(
+                                viewModel: widget.viewModel,
+                                songId: song.id!,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ],
             ),
@@ -285,6 +331,14 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
     }
   }
 
+  Future<void> _setSongFavorite(Song song, bool isFavorite) async {
+    try {
+      await widget.viewModel.setSongFavorite(song.id!, isFavorite);
+    } catch (error) {
+      _showError('Não foi possível atualizar a favorita: $error');
+    }
+  }
+
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
@@ -310,6 +364,16 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
           appBar: AppBar(
             title: const Text('Cifra'),
             actions: [
+              IconButton(
+                tooltip: song.isFavorite
+                    ? 'Remover das favoritas'
+                    : 'Adicionar às favoritas',
+                onPressed: () => _setSongFavorite(song, !song.isFavorite),
+                icon: Icon(
+                  song.isFavorite ? Icons.favorite : Icons.favorite_border,
+                  color: song.isFavorite ? AppColors.clay : null,
+                ),
+              ),
               IconButton(
                 tooltip: 'Excluir cifra',
                 onPressed: () => _deleteSong(song),
@@ -483,10 +547,15 @@ class _RepertoireSummary extends StatelessWidget {
 }
 
 class _SongTile extends StatelessWidget {
-  const _SongTile({required this.song, required this.onTap});
+  const _SongTile({
+    required this.song,
+    required this.onTap,
+    required this.onToggleFavorite,
+  });
 
   final Song song;
   final VoidCallback onTap;
+  final VoidCallback onToggleFavorite;
 
   @override
   Widget build(BuildContext context) {
@@ -547,12 +616,51 @@ class _SongTile extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(width: 2),
+              IconButton(
+                tooltip: song.isFavorite
+                    ? 'Remover das favoritas'
+                    : 'Adicionar às favoritas',
+                onPressed: onToggleFavorite,
+                visualDensity: VisualDensity.compact,
+                icon: Icon(
+                  song.isFavorite ? Icons.favorite : Icons.favorite_border,
+                  color: song.isFavorite ? AppColors.clay : AppColors.muted,
+                ),
+              ),
               const Icon(Icons.chevron_right, color: AppColors.chevron),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SongGroupHeading extends StatelessWidget {
+  const _SongGroupHeading({required this.title, required this.count});
+
+  final String title;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(
+          title,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.2,
+            color: AppColors.muted,
+          ),
+        ),
+        const Spacer(),
+        Text(
+          '$count',
+          style: Theme.of(context).textTheme.labelMedium
+              ?.copyWith(color: AppColors.muted),
+        ),
+      ],
     );
   }
 }

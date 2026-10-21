@@ -127,6 +127,41 @@ void main() {
       AppColors.parchment,
     );
   });
+
+  testWidgets('favorita e desfavorita cifras na biblioteca', (tester) async {
+    final repository = _MemorySongRepository();
+    await repository.addSong(
+      const NewSong(
+        title: 'Canção favorita',
+        artist: 'Artista',
+        key: 'C',
+        tempo: null,
+      ),
+    );
+    await tester.pumpWidget(CifrasApp(repository: repository));
+    await tester.pumpAndSettle();
+
+    expect(find.text('FAVORITAS'), findsOneWidget);
+    expect(find.text('Canção favorita'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Adicionar às favoritas'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Canção favorita'), findsOneWidget);
+    expect(find.text('OUTRAS CIFRAS'), findsOneWidget);
+    expect(find.text('Todas as cifras estão nas favoritas.'), findsOneWidget);
+    expect(find.byTooltip('Remover das favoritas'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Remover das favoritas'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Canção favorita'), findsOneWidget);
+    expect(
+      find.text('Toque no coração de uma cifra para adicioná-la aqui.'),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Adicionar às favoritas'), findsOneWidget);
+  });
 }
 
 class _MemorySongRepository implements SongRepository {
@@ -164,6 +199,7 @@ class _MemorySongRepository implements SongRepository {
       key: key,
       tempo: song.tempo,
       timeSignature: song.timeSignature,
+      isFavorite: song.isFavorite,
       sections: [
         for (final section in song.sections)
           SongSection(
@@ -177,6 +213,22 @@ class _MemorySongRepository implements SongRepository {
             timeSignature: section.timeSignature,
           ),
       ],
+    );
+  }
+
+  @override
+  Future<void> setSongFavorite(int songId, bool isFavorite) async {
+    final index = _songs.indexWhere((song) => song.id == songId);
+    final song = _songs[index];
+    _songs[index] = Song(
+      id: song.id,
+      title: song.title,
+      artist: song.artist,
+      key: song.key,
+      tempo: song.tempo,
+      timeSignature: song.timeSignature,
+      isFavorite: isFavorite,
+      sections: song.sections,
     );
   }
 
@@ -207,6 +259,7 @@ class _MemorySongRepository implements SongRepository {
       key: song.key,
       tempo: song.tempo,
       timeSignature: song.timeSignature,
+      isFavorite: song.isFavorite,
       sections: sections,
     );
   }
@@ -225,6 +278,7 @@ class _MemorySongRepository implements SongRepository {
         key: song.key,
         tempo: song.tempo,
         timeSignature: song.timeSignature,
+        isFavorite: song.isFavorite,
         sections: sections,
       );
     }
