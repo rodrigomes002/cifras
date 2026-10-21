@@ -1,3 +1,4 @@
+import 'package:cifras/domain/music_transposition.dart';
 import 'package:cifras/domain/song.dart';
 import 'package:cifras/domain/song_repository.dart';
 import 'package:cifras/main.dart';
@@ -14,6 +15,17 @@ void main() {
     expect(SongSection.parseMeasures(' |  | '), isEmpty);
   });
 
+  test('transpõe acordes e baixos mantendo a qualidade', () {
+    expect(transposeChord('Am', 2), 'Bm');
+    expect(transposeChord('G7/B', 5), 'C7/E');
+    expect(transposeChord('Fmaj7', 2), 'Gmaj7');
+    expect(normalizeSongKey('A minor'), 'Am');
+    expect(songKeyInterval('Am', 'Dm'), 5);
+    expect(shiftSongKey('D', -1), 'C#');
+    expect(shiftSongKey('D', 1), 'D#');
+    expect(shiftSongKey('Am', 1), 'A#m');
+  });
+
   testWidgets('cadastra uma música e organiza acordes por seção', (
     tester,
   ) async {
@@ -27,6 +39,7 @@ void main() {
     await tester.tap(find.text('Nova cifra'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField).first, 'Canção teste');
+    await tester.enterText(find.byType(TextFormField).at(2), 'Am');
     await tester.tap(find.byType(DropdownButtonFormField<String>));
     await tester.pumpAndSettle();
     await tester.tap(find.text('3/4').last);
@@ -37,7 +50,7 @@ void main() {
     expect(find.text('Canção teste'), findsOneWidget);
     await tester.tap(find.text('Canção teste'));
     await tester.pumpAndSettle();
-    expect(find.text('3/4'), findsOneWidget);
+    expect(find.text('COMPASSO'), findsNothing);
     await tester.tap(find.text('Adicionar seção'));
     await tester.pumpAndSettle();
     await tester.tap(find.byType(DropdownButtonFormField<String>).at(1));
@@ -66,11 +79,18 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Intro'), findsOneWidget);
+    expect(find.text('Compasso: 3/4'), findsOneWidget);
     expect(find.text('COMPASSO 1'), findsOneWidget);
     expect(find.text('Am'), findsOneWidget);
     expect(find.text('C'), findsOneWidget);
     expect(find.text('COMPASSO 2'), findsOneWidget);
     expect(find.textContaining('letra'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('song-key-next')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('A#m'), findsNWidgets(2));
+    expect(find.text('C#'), findsOneWidget);
   });
 }
 
@@ -94,6 +114,33 @@ class _MemorySongRepository implements SongRepository {
         tempo: song.tempo,
         timeSignature: song.timeSignature,
       ),
+    );
+  }
+
+  @override
+  Future<void> changeSongKey(int songId, String key) async {
+    final index = _songs.indexWhere((song) => song.id == songId);
+    final song = _songs[index];
+    final interval = songKeyInterval(song.key, key);
+    _songs[index] = Song(
+      id: song.id,
+      title: song.title,
+      artist: song.artist,
+      key: key,
+      tempo: song.tempo,
+      timeSignature: song.timeSignature,
+      sections: [
+        for (final section in song.sections)
+          SongSection(
+            id: section.id,
+            songId: section.songId,
+            title: section.title,
+            measures: interval == null || interval == 0
+                ? section.measures
+                : transposeMeasures(section.measures, interval),
+            position: section.position,
+          ),
+      ],
     );
   }
 

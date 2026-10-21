@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:path/path.dart' as path;
 import 'package:sqflite/sqflite.dart';
 
+import '../domain/music_transposition.dart';
 import '../domain/song.dart';
 import '../domain/song_repository.dart';
 
@@ -97,6 +98,58 @@ class SqliteSongRepository implements SongRepository {
       'song_key': song.key,
       'tempo': song.tempo,
       'time_signature': song.timeSignature,
+    });
+  }
+
+  @override
+  Future<void> changeSongKey(int songId, String key) async {
+    final targetKey = normalizeSongKey(key);
+    if (targetKey == null) {
+      throw FormatException('O tom "$key" não é válido.');
+    }
+
+    final db = await _db;
+    await db.transaction((transaction) async {
+      final songs = await transaction.query(
+        'songs',
+        columns: ['song_key'],
+        where: 'id = ?',
+        whereArgs: [songId],
+        limit: 1,
+      );
+      if (songs.isEmpty) {
+        throw StateError('A cifra $songId não foi encontrada.');
+      }
+
+      final currentKey = songs.first['song_key']! as String;
+      final interval = songKeyInterval(currentKey, targetKey);
+      if (interval != null && interval != 0) {
+        final sections = await transaction.query(
+          'sections',
+          columns: ['id', 'measures'],
+          where: 'song_id = ?',
+          whereArgs: [songId],
+        );
+        for (final section in sections) {
+          final measures = (jsonDecode(section['measures']! as String) as List)
+              .cast<String>();
+          await transaction.update(
+            'sections',
+            {
+              'measures': jsonEncode(transposeMeasures(measures, interval)),
+            },
+            where: 'id = ?',
+            whereArgs: [section['id']],
+          );
+        }
+      }
+
+      await transaction.update(
+        'songs',
+        {'song_key': targetKey},
+        where: 'id = ?',
+        whereArgs: [songId],
+      );
     });
   }
 

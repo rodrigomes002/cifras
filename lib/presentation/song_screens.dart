@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../domain/music_transposition.dart';
 import '../domain/song.dart';
 import 'song_library_view_model.dart';
 
@@ -280,6 +281,14 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
     }
   }
 
+  Future<void> _changeSongKey(String key) async {
+    try {
+      await widget.viewModel.changeSongKey(widget.songId, key);
+    } catch (error) {
+      _showError('Não foi possível alterar o tom: $error');
+    }
+  }
+
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
@@ -330,7 +339,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
                 ),
               ],
               const SizedBox(height: 20),
-              _SongMetadata(song: song),
+              _SongMetadata(song: song, onKeyChanged: _changeSongKey),
               const SizedBox(height: 26),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -360,6 +369,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _SectionCard(
                       section: section,
+                      timeSignature: song.timeSignature,
                       onDelete: () => _deleteSection(section),
                     ),
                   ),
@@ -373,6 +383,56 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+class _SongKeySelector extends StatelessWidget {
+  const _SongKeySelector({required this.song, required this.onChanged});
+
+  final Song song;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedKey = normalizeSongKey(song.key);
+    final previousKey = selectedKey == null
+        ? null
+        : shiftSongKey(selectedKey, -1);
+    final nextKey = selectedKey == null ? null : shiftSongKey(selectedKey, 1);
+    return Row(
+      children: [
+        IconButton(
+          key: const ValueKey('song-key-previous'),
+          tooltip: 'Tom anterior: ${previousKey ?? 'indisponível'}',
+          visualDensity: VisualDensity.compact,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints.tightFor(width: 24, height: 28),
+          onPressed: previousKey == null ? null : () => onChanged(previousKey),
+          icon: const Icon(Icons.chevron_left, size: 20),
+        ),
+        Expanded(
+          child: Center(
+            child: Text(
+              selectedKey ?? '—',
+              key: const ValueKey('song-key-current'),
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ),
+        IconButton(
+          key: const ValueKey('song-key-next'),
+          tooltip: 'Próximo tom: ${nextKey ?? 'indisponível'}',
+          visualDensity: VisualDensity.compact,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints.tightFor(width: 24, height: 28),
+          onPressed: nextKey == null ? null : () => onChanged(nextKey),
+          icon: const Icon(Icons.chevron_right, size: 20),
+        ),
+      ],
     );
   }
 }
@@ -528,32 +588,49 @@ class _KeyBadge extends StatelessWidget {
 }
 
 class _SongMetadata extends StatelessWidget {
-  const _SongMetadata({required this.song});
+  const _SongMetadata({required this.song, required this.onKeyChanged});
 
   final Song song;
+  final ValueChanged<String> onKeyChanged;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final gap = 8.0;
-        final width = (constraints.maxWidth - gap * 2) / 3;
+        final width = (constraints.maxWidth - gap) / 2;
         return Wrap(
           spacing: gap,
           runSpacing: gap,
           children: [
             SizedBox(
               width: width,
-              child: _MetadataCard(
-                label: 'TOM',
-                value: song.key.isEmpty ? '—' : song.key,
-              ),
-            ),
-            SizedBox(
-              width: width,
-              child: _MetadataCard(
-                label: 'COMPASSO',
-                value: song.timeSignature,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 14,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'TOM',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: const Color(0xFF747B75),
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    _SongKeySelector(song: song, onChanged: onKeyChanged),
+                  ],
+                ),
               ),
             ),
             SizedBox(
@@ -610,9 +687,14 @@ class _MetadataCard extends StatelessWidget {
 }
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.section, required this.onDelete});
+  const _SectionCard({
+    required this.section,
+    required this.timeSignature,
+    required this.onDelete,
+  });
 
   final SongSection section;
+  final String timeSignature;
   final VoidCallback onDelete;
 
   @override
@@ -643,10 +725,20 @@ class _SectionCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  section.title,
-                  style: Theme.of(context).textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w800),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      section.title,
+                      style: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+                    Text(
+                      'Compasso: $timeSignature',
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: const Color(0xFF747B75)),
+                    ),
+                  ],
                 ),
               ),
               Text(

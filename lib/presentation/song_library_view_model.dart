@@ -30,6 +30,11 @@ class SongLibraryViewModel extends ChangeNotifier {
     await load();
   }
 
+  Future<void> changeSongKey(int songId, String key) async {
+    await _repository.changeSongKey(songId, key);
+    await load();
+  }
+
   Future<void> deleteSong(int songId) async {
     await _repository.deleteSong(songId);
     await load();
