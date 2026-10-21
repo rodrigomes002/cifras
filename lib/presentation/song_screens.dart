@@ -1,0 +1,1227 @@
+import 'package:flutter/material.dart';
+
+import '../domain/song.dart';
+import 'song_library_view_model.dart';
+
+const _sectionNames = [
+  'Intro',
+  'Verso',
+  'Pré-refrão',
+  'Refrão',
+  'Ponte',
+  'Solo',
+  'Final',
+];
+
+const _chordRoots = [
+  'C',
+  'C#',
+  'D',
+  'Eb',
+  'E',
+  'F',
+  'F#',
+  'G',
+  'Ab',
+  'A',
+  'Bb',
+  'B',
+];
+
+const _chordQualities = {
+  'Maior': '',
+  'Menor': 'm',
+  'Sétima': '7',
+  'Maior com sétima': 'maj7',
+  'Menor com sétima': 'm7',
+  'Suspenso': 'sus4',
+  'Diminuto': 'dim',
+};
+
+class SongLibraryScreen extends StatefulWidget {
+  const SongLibraryScreen({super.key, required this.viewModel});
+
+  final SongLibraryViewModel viewModel;
+
+  @override
+  State<SongLibraryScreen> createState() => _SongLibraryScreenState();
+}
+
+class _SongLibraryScreenState extends State<SongLibraryScreen> {
+  String _search = '';
+
+  Future<void> _createSong() async {
+    final song = await showModalBottomSheet<NewSong>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const _SongFormSheet(),
+    );
+    if (song == null || !mounted) return;
+
+    try {
+      await widget.viewModel.addSong(song);
+    } catch (error) {
+      _showError('Não foi possível salvar a música: $error');
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        titleSpacing: 22,
+        title: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.music_note,
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'cifras',
+              style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: -1),
+            ),
+          ],
+        ),
+      ),
+      body: AnimatedBuilder(
+        animation: widget.viewModel,
+        builder: (context, _) {
+          final songs = widget.viewModel.songs
+              .where((song) {
+                final query = _search.trim().toLowerCase();
+                return query.isEmpty ||
+                    song.title.toLowerCase().contains(query) ||
+                    song.artist.toLowerCase().contains(query);
+              })
+              .toList(growable: false);
+
+          return RefreshIndicator(
+            onRefresh: widget.viewModel.load,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(22, 18, 22, 100),
+              children: [
+                Text(
+                  'Seu repertório',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -1,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Só acordes e estrutura. Sem letras.',
+                  style: Theme.of(context).textTheme.bodyLarge
+                      ?.copyWith(color: const Color(0xFF747B75)),
+                ),
+                const SizedBox(height: 24),
+                _RepertoireSummary(
+                  songCount: widget.viewModel.songs.length,
+                  onAdd: _createSong,
+                ),
+                const SizedBox(height: 24),
+                TextField(
+                  onChanged: (value) => setState(() => _search = value),
+                  decoration: const InputDecoration(
+                    hintText: 'Buscar música ou artista',
+                    prefixIcon: Icon(Icons.search),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                if (widget.viewModel.isLoading)
+                  const Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (widget.viewModel.loadError != null)
+                  _LoadError(
+                    error: widget.viewModel.loadError!,
+                    onRetry: widget.viewModel.load,
+                  )
+                else if (songs.isEmpty && widget.viewModel.songs.isEmpty)
+                  _EmptyLibrary(onAdd: _createSong)
+                else if (songs.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(child: Text('Nenhuma música encontrada.')),
+                  )
+                else ...[
+                  Row(
+                    children: [
+                      Text(
+                        'MÚSICAS',
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.2,
+                              color: const Color(0xFF747B75),
+                            ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${songs.length}',
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(color: const Color(0xFF747B75)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  ...songs.map(
+                    (song) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _SongTile(
+                        song: song,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => SongDetailScreen(
+                              viewModel: widget.viewModel,
+                              songId: song.id!,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _createSong,
+        icon: const Icon(Icons.add),
+        label: const Text('Nova cifra'),
+      ),
+    );
+  }
+}
+
+class SongDetailScreen extends StatefulWidget {
+  const SongDetailScreen({
+    super.key,
+    required this.viewModel,
+    required this.songId,
+  });
+
+  final SongLibraryViewModel viewModel;
+  final int songId;
+
+  @override
+  State<SongDetailScreen> createState() => _SongDetailScreenState();
+}
+
+class _SongDetailScreenState extends State<SongDetailScreen> {
+  Future<void> _addSection() async {
+    final section = await showModalBottomSheet<NewSection>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const _SectionFormSheet(),
+    );
+    if (section == null || !mounted) return;
+
+    try {
+      await widget.viewModel.addSection(widget.songId, section);
+    } catch (error) {
+      _showError('Não foi possível salvar a seção: $error');
+    }
+  }
+
+  Future<void> _deleteSong(Song song) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Excluir cifra?'),
+        content: Text(
+          'A cifra de "${song.title}" e suas seções serão removidas.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+    if (shouldDelete != true || !mounted) return;
+
+    try {
+      await widget.viewModel.deleteSong(widget.songId);
+      if (mounted) Navigator.pop(context);
+    } catch (error) {
+      _showError('Não foi possível excluir a cifra: $error');
+    }
+  }
+
+  Future<void> _deleteSection(SongSection section) async {
+    try {
+      await widget.viewModel.deleteSection(section.id!);
+    } catch (error) {
+      _showError('Não foi possível excluir a seção: $error');
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: widget.viewModel,
+      builder: (context, _) {
+        final matches = widget.viewModel.songs.where(
+          (song) => song.id == widget.songId,
+        );
+        if (matches.isEmpty) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final song = matches.first;
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Cifra'),
+            actions: [
+              IconButton(
+                tooltip: 'Excluir cifra',
+                onPressed: () => _deleteSong(song),
+                icon: const Icon(Icons.delete_outline),
+              ),
+              const SizedBox(width: 6),
+            ],
+          ),
+          body: ListView(
+            padding: const EdgeInsets.fromLTRB(22, 8, 22, 100),
+            children: [
+              Text(
+                song.title,
+                style: Theme.of(context).textTheme.headlineMedium
+                    ?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -1),
+              ),
+              if (song.artist.isNotEmpty) ...[
+                const SizedBox(height: 5),
+                Text(
+                  song.artist,
+                  style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(color: const Color(0xFF747B75)),
+                ),
+              ],
+              const SizedBox(height: 20),
+              _SongMetadata(song: song),
+              const SizedBox(height: 26),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    'Estrutura',
+                    style: Theme.of(context).textTheme.titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(width: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Text(
+                      '${song.sections.length} ${song.sections.length == 1 ? 'seção' : 'seções'}',
+                      style: Theme.of(context).textTheme.bodyMedium
+                          ?.copyWith(color: const Color(0xFF747B75)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (song.sections.isEmpty)
+                const _EmptySections()
+              else
+                ...song.sections.map(
+                  (section) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _SectionCard(
+                      section: section,
+                      onDelete: () => _deleteSection(section),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: _addSection,
+            icon: const Icon(Icons.add),
+            label: const Text('Adicionar seção'),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _RepertoireSummary extends StatelessWidget {
+  const _RepertoireSummary({required this.songCount, required this.onAdd});
+
+  final int songCount;
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8EFE8),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: const Icon(Icons.library_music_outlined),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$songCount ${songCount == 1 ? 'cifra salva' : 'cifras salvas'}',
+                  style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 2),
+                const Text('Organize por partes e compassos'),
+              ],
+            ),
+          ),
+          IconButton.filledTonal(
+            tooltip: 'Adicionar cifra',
+            onPressed: onAdd,
+            icon: const Icon(Icons.add),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SongTile extends StatelessWidget {
+  const _SongTile({required this.song, required this.onTap});
+
+  final Song song;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F3EE),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.music_note, color: Color(0xFF315C4D)),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      song.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      song.artist.isEmpty
+                          ? 'Artista não informado'
+                          : song.artist,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium
+                          ?.copyWith(color: const Color(0xFF747B75)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _KeyBadge(song.key.isEmpty ? '—' : song.key),
+                  const SizedBox(height: 5),
+                  Text(
+                    '${song.sections.length} ${song.sections.length == 1 ? 'parte' : 'partes'}',
+                    style: Theme.of(context).textTheme.labelSmall
+                        ?.copyWith(color: const Color(0xFF747B75)),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 2),
+              const Icon(Icons.chevron_right, color: Color(0xFF909891)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _KeyBadge extends StatelessWidget {
+  const _KeyBadge(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8EFE8),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: const Color(0xFF315C4D),
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _SongMetadata extends StatelessWidget {
+  const _SongMetadata({required this.song});
+
+  final Song song;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final gap = 8.0;
+        final width = (constraints.maxWidth - gap * 2) / 3;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            SizedBox(
+              width: width,
+              child: _MetadataCard(
+                label: 'TOM',
+                value: song.key.isEmpty ? '—' : song.key,
+              ),
+            ),
+            SizedBox(
+              width: width,
+              child: _MetadataCard(
+                label: 'COMPASSO',
+                value: song.timeSignature,
+              ),
+            ),
+            SizedBox(
+              width: width,
+              child: _MetadataCard(
+                label: 'ANDAMENTO',
+                value: song.tempo == null ? '—' : '${song.tempo} BPM',
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _MetadataCard extends StatelessWidget {
+  const _MetadataCard({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: const Color(0xFF747B75),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.w800),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({required this.section, required this.onDelete});
+
+  final SongSection section;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8EFE8),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: const Icon(
+                  Icons.segment,
+                  size: 19,
+                  color: Color(0xFF315C4D),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  section.title,
+                  style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+              ),
+              Text(
+                '${section.measures.length} c.',
+                style: Theme.of(context).textTheme.labelMedium
+                    ?.copyWith(color: const Color(0xFF747B75)),
+              ),
+              IconButton(
+                tooltip: 'Excluir seção',
+                visualDensity: VisualDensity.compact,
+                onPressed: onDelete,
+                icon: const Icon(Icons.close, size: 19),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = constraints.maxWidth >= 520 ? 4 : 2;
+              final gap = 8.0;
+              final width =
+                  (constraints.maxWidth - gap * (columns - 1)) / columns;
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: [
+                  for (var index = 0; index < section.measures.length; index++)
+                    SizedBox(
+                      width: width,
+                      child: _MeasureCard(
+                        number: index + 1,
+                        chords: section.measures[index],
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MeasureCard extends StatelessWidget {
+  const _MeasureCard({required this.number, required this.chords});
+
+  final int number;
+  final String chords;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 76),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F7F2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'COMPASSO $number',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: const Color(0xFF747B75),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            chords,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: const Color(0xFF315C4D),
+              fontWeight: FontWeight.w800,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyLibrary extends StatelessWidget {
+  const _EmptyLibrary({required this.onAdd});
+
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 34, 20, 20),
+      child: Column(
+        children: [
+          Container(
+            width: 66,
+            height: 66,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8EFE8),
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: const Icon(
+              Icons.library_music_outlined,
+              size: 30,
+              color: Color(0xFF315C4D),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Sua primeira cifra começa aqui',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleLarge
+                ?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 7),
+          const Text(
+            'Cadastre uma música e organize os acordes por partes.',
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            onPressed: onAdd,
+            icon: const Icon(Icons.add),
+            label: const Text('Criar primeira cifra'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptySections extends StatelessWidget {
+  const _EmptySections();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.tips_and_updates_outlined, color: Color(0xFF315C4D)),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Adicione uma parte e distribua os acordes em compassos.',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoadError extends StatelessWidget {
+  const _LoadError({required this.error, required this.onRetry});
+
+  final Object error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 22),
+      child: Column(
+        children: [
+          const Icon(Icons.error_outline, size: 32),
+          const SizedBox(height: 8),
+          const Text('Não foi possível carregar suas cifras.'),
+          const SizedBox(height: 4),
+          Text(
+            '$error',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Tentar novamente'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SongFormSheet extends StatefulWidget {
+  const _SongFormSheet();
+
+  @override
+  State<_SongFormSheet> createState() => _SongFormSheetState();
+}
+
+class _SongFormSheetState extends State<_SongFormSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _title = TextEditingController();
+  final _artist = TextEditingController();
+  final _key = TextEditingController();
+  final _tempo = TextEditingController();
+  String _timeSignature = '4/4';
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _artist.dispose();
+    _key.dispose();
+    _tempo.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    if (!_formKey.currentState!.validate()) return;
+    final tempoText = _tempo.text.trim();
+    Navigator.pop(
+      context,
+      NewSong(
+        title: _title.text.trim(),
+        artist: _artist.text.trim(),
+        key: _key.text.trim(),
+        tempo: tempoText.isEmpty ? null : int.parse(tempoText),
+        timeSignature: _timeSignature,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _FormSheetFrame(
+      title: 'Nova cifra',
+      subtitle: 'Identifique a música. A letra não é necessária.',
+      onSave: _save,
+      saveLabel: 'Criar cifra',
+      child: Form(
+        key: _formKey,
+        child: Column(
+          children: [
+            TextFormField(
+              controller: _title,
+              autofocus: true,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                labelText: 'Nome da música',
+                hintText: 'Ex.: Caminho de casa',
+              ),
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? 'Informe o nome da música.'
+                  : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _artist,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(
+                labelText: 'Artista (opcional)',
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _key,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: const InputDecoration(
+                      labelText: 'Tom (opcional)',
+                      hintText: 'Am',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextFormField(
+                    controller: _tempo,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'BPM (opcional)',
+                      hintText: '92',
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) return null;
+                      final tempo = int.tryParse(value.trim());
+                      if (tempo == null || tempo < 1 || tempo > 400) {
+                        return 'Use um valor entre 1 e 400.';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _timeSignature,
+              decoration: const InputDecoration(
+                labelText: 'Fórmula de compasso',
+                helperText: 'Quantidade e tipo de tempos em cada compasso.',
+              ),
+              items: const [
+                DropdownMenuItem(value: '2/4', child: Text('2/4')),
+                DropdownMenuItem(value: '3/4', child: Text('3/4')),
+                DropdownMenuItem(value: '4/4', child: Text('4/4')),
+                DropdownMenuItem(value: '5/4', child: Text('5/4')),
+                DropdownMenuItem(value: '6/8', child: Text('6/8')),
+                DropdownMenuItem(value: '7/8', child: Text('7/8')),
+                DropdownMenuItem(value: '12/8', child: Text('12/8')),
+              ],
+              onChanged: (value) {
+                if (value != null) setState(() => _timeSignature = value);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionFormSheet extends StatefulWidget {
+  const _SectionFormSheet();
+
+  @override
+  State<_SectionFormSheet> createState() => _SectionFormSheetState();
+}
+
+class _SectionFormSheetState extends State<_SectionFormSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final List<List<String>> _measures = [[]];
+  String _sectionName = _sectionNames.first;
+  String _chordRoot = _chordRoots.first;
+  String _chordQuality = _chordQualities.keys.first;
+  String? _validationError;
+
+  bool get _hasChords => _measures.any((measure) => measure.isNotEmpty);
+
+  void _addChord() {
+    setState(() {
+      _measures.last.add('$_chordRoot${_chordQualities[_chordQuality]}');
+      _validationError = null;
+    });
+  }
+
+  void _addMeasure() {
+    setState(() => _measures.add([]));
+  }
+
+  void _save() {
+    if (!_formKey.currentState!.validate()) return;
+    if (!_hasChords) {
+      setState(() => _validationError = 'Adicione ao menos um acorde.');
+      return;
+    }
+    Navigator.pop(
+      context,
+      NewSection(
+        title: _sectionName,
+        measures: _measures
+            .where((measure) => measure.isNotEmpty)
+            .map((measure) => measure.join(' '))
+            .toList(growable: false),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _FormSheetFrame(
+      title: 'Adicionar seção',
+      subtitle: 'Selecione os acordes e organize-os em compassos.',
+      onSave: _save,
+      saveLabel: 'Salvar seção',
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DropdownButtonFormField<String>(
+              initialValue: _sectionName,
+              decoration: const InputDecoration(labelText: 'Parte da música'),
+              items: _sectionNames
+                  .map(
+                    (name) => DropdownMenuItem(value: name, child: Text(name)),
+                  )
+                  .toList(growable: false),
+              onChanged: (value) {
+                if (value != null) setState(() => _sectionName = value);
+              },
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _chordRoot,
+                    decoration: const InputDecoration(labelText: 'Nota'),
+                    items: _chordRoots
+                        .map(
+                          (root) => DropdownMenuItem(
+                            value: root,
+                            child: Text(root),
+                          ),
+                        )
+                        .toList(growable: false),
+                    onChanged: (value) {
+                      if (value != null) setState(() => _chordRoot = value);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _chordQuality,
+                    decoration: const InputDecoration(labelText: 'Acorde'),
+                    items: _chordQualities.keys
+                        .map(
+                          (quality) => DropdownMenuItem(
+                            value: quality,
+                            child: Text(quality),
+                          ),
+                        )
+                        .toList(growable: false),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _chordQuality = value);
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _addChord,
+                icon: const Icon(Icons.add),
+                label: const Text('Adicionar acorde ao compasso'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            for (var index = 0; index < _measures.length; index++) ...[
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF7F7F2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE5E8E2)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'COMPASSO ${index + 1}',
+                      style: Theme.of(context).textTheme.labelMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    if (_measures[index].isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Text('Nenhum acorde selecionado'),
+                      )
+                    else
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          for (final chord in _measures[index])
+                            InputChip(
+                              label: Text(chord),
+                              onDeleted: () {
+                                setState(() => _measures[index].remove(chord));
+                              },
+                            ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ],
+            TextButton.icon(
+              onPressed: _addMeasure,
+              icon: const Icon(Icons.add),
+              label: const Text('Novo compasso'),
+            ),
+            if (_validationError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  _validationError!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FormSheetFrame extends StatelessWidget {
+  const _FormSheetFrame({
+    required this.title,
+    required this.subtitle,
+    required this.onSave,
+    required this.saveLabel,
+    required this.child,
+  });
+
+  final String title;
+  final String subtitle;
+  final VoidCallback onSave;
+  final String saveLabel;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          22,
+          14,
+          22,
+          MediaQuery.viewInsetsOf(context).bottom + 18,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD6DCD5),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: Theme.of(context).textTheme.bodyMedium
+                    ?.copyWith(color: const Color(0xFF747B75)),
+              ),
+              const SizedBox(height: 20),
+              child,
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: onSave,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Text(saveLabel),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
