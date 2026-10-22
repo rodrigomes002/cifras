@@ -46,6 +46,301 @@ const _chordQualities = {
   'Diminuto': 'dim',
 };
 
+enum _ChordInstrument { guitar, keyboard }
+
+const _chordPitchNames = [
+  'C',
+  'C#',
+  'D',
+  'Eb',
+  'E',
+  'F',
+  'F#',
+  'G',
+  'Ab',
+  'A',
+  'Bb',
+  'B',
+];
+
+const _chordPitchClasses = {
+  'C': 0,
+  'C#': 1,
+  'Db': 1,
+  'D': 2,
+  'D#': 3,
+  'Eb': 3,
+  'E': 4,
+  'F': 5,
+  'F#': 6,
+  'Gb': 6,
+  'G': 7,
+  'G#': 8,
+  'Ab': 8,
+  'A': 9,
+  'A#': 10,
+  'Bb': 10,
+  'B': 11,
+};
+
+class _GuitarShapeTemplate {
+  const _GuitarShapeTemplate({
+    required this.quality,
+    required this.rootString,
+    required this.frets,
+    required this.openFingers,
+    required this.movableFingers,
+    this.barreStrings,
+  });
+
+  final String quality;
+  final int rootString;
+  final List<int> frets;
+  final List<int> openFingers;
+  final List<int> movableFingers;
+  final (int, int)? barreStrings;
+}
+
+class _GuitarChordShape {
+  const _GuitarChordShape({
+    required this.frets,
+    required this.fingers,
+    required this.baseFret,
+    required this.barreStrings,
+  });
+
+  final List<int> frets;
+  final List<int> fingers;
+  final int baseFret;
+  final (int, int)? barreStrings;
+}
+
+const _guitarStrings = [
+  (name: 'E', pitch: 4),
+  (name: 'A', pitch: 9),
+  (name: 'D', pitch: 2),
+  (name: 'G', pitch: 7),
+  (name: 'B', pitch: 11),
+  (name: 'e', pitch: 4),
+];
+
+const _guitarShapeTemplates = [
+  _GuitarShapeTemplate(
+    quality: '',
+    rootString: 0,
+    frets: [0, 2, 2, 1, 0, 0],
+    openFingers: [0, 2, 3, 1, 0, 0],
+    movableFingers: [1, 3, 4, 2, 1, 1],
+    barreStrings: (0, 5),
+  ),
+  _GuitarShapeTemplate(
+    quality: 'm',
+    rootString: 0,
+    frets: [0, 2, 2, 0, 0, 0],
+    openFingers: [0, 2, 3, 0, 0, 0],
+    movableFingers: [1, 3, 4, 1, 1, 1],
+    barreStrings: (0, 5),
+  ),
+  _GuitarShapeTemplate(
+    quality: '7',
+    rootString: 0,
+    frets: [0, 2, 0, 1, 0, 0],
+    openFingers: [0, 2, 0, 1, 0, 0],
+    movableFingers: [1, 3, 1, 2, 1, 1],
+    barreStrings: (0, 5),
+  ),
+  _GuitarShapeTemplate(
+    quality: 'maj7',
+    rootString: 0,
+    frets: [0, 2, 1, 1, 0, 0],
+    openFingers: [0, 2, 1, 1, 0, 0],
+    movableFingers: [1, 3, 2, 2, 1, 1],
+    barreStrings: (0, 5),
+  ),
+  _GuitarShapeTemplate(
+    quality: 'm7',
+    rootString: 0,
+    frets: [0, 2, 0, 0, 0, 0],
+    openFingers: [0, 2, 0, 0, 0, 0],
+    movableFingers: [1, 3, 1, 1, 1, 1],
+    barreStrings: (0, 5),
+  ),
+  _GuitarShapeTemplate(
+    quality: 'sus4',
+    rootString: 0,
+    frets: [0, 2, 2, 2, 0, 0],
+    openFingers: [0, 2, 3, 4, 0, 0],
+    movableFingers: [1, 3, 4, 4, 1, 1],
+    barreStrings: (0, 5),
+  ),
+  _GuitarShapeTemplate(
+    quality: '',
+    rootString: 1,
+    frets: [-1, 0, 2, 2, 2, 0],
+    openFingers: [0, 0, 2, 3, 4, 0],
+    movableFingers: [0, 1, 3, 3, 3, 1],
+    barreStrings: (1, 5),
+  ),
+  _GuitarShapeTemplate(
+    quality: 'm',
+    rootString: 1,
+    frets: [-1, 0, 2, 2, 1, 0],
+    openFingers: [0, 0, 2, 3, 1, 0],
+    movableFingers: [0, 1, 3, 3, 2, 1],
+    barreStrings: (1, 5),
+  ),
+  _GuitarShapeTemplate(
+    quality: '7',
+    rootString: 1,
+    frets: [-1, 0, 2, 0, 2, 0],
+    openFingers: [0, 0, 2, 0, 1, 0],
+    movableFingers: [0, 1, 3, 1, 3, 1],
+    barreStrings: (1, 5),
+  ),
+  _GuitarShapeTemplate(
+    quality: 'maj7',
+    rootString: 1,
+    frets: [-1, 0, 2, 1, 2, 0],
+    openFingers: [0, 0, 2, 1, 3, 0],
+    movableFingers: [0, 1, 3, 2, 4, 1],
+    barreStrings: (1, 5),
+  ),
+  _GuitarShapeTemplate(
+    quality: 'm7',
+    rootString: 1,
+    frets: [-1, 0, 2, 0, 1, 0],
+    openFingers: [0, 0, 2, 0, 1, 0],
+    movableFingers: [0, 1, 3, 1, 2, 1],
+    barreStrings: (1, 5),
+  ),
+  _GuitarShapeTemplate(
+    quality: 'sus4',
+    rootString: 1,
+    frets: [-1, 0, 2, 2, 3, 0],
+    openFingers: [0, 0, 1, 2, 3, 0],
+    movableFingers: [0, 1, 2, 2, 4, 1],
+    barreStrings: (1, 5),
+  ),
+  _GuitarShapeTemplate(
+    quality: '',
+    rootString: 2,
+    frets: [-1, -1, 0, 2, 3, 2],
+    openFingers: [0, 0, 0, 1, 3, 2],
+    movableFingers: [0, 0, 1, 3, 4, 2],
+  ),
+  _GuitarShapeTemplate(
+    quality: 'm',
+    rootString: 2,
+    frets: [-1, -1, 0, 2, 3, 1],
+    openFingers: [0, 0, 0, 2, 3, 1],
+    movableFingers: [0, 0, 1, 3, 4, 2],
+  ),
+  _GuitarShapeTemplate(
+    quality: '7',
+    rootString: 2,
+    frets: [-1, -1, 0, 2, 1, 2],
+    openFingers: [0, 0, 0, 2, 1, 3],
+    movableFingers: [0, 0, 1, 3, 2, 4],
+  ),
+  _GuitarShapeTemplate(
+    quality: 'maj7',
+    rootString: 2,
+    frets: [-1, -1, 0, 2, 2, 2],
+    openFingers: [0, 0, 0, 1, 2, 3],
+    movableFingers: [0, 0, 1, 1, 1, 1],
+    barreStrings: (2, 5),
+  ),
+  _GuitarShapeTemplate(
+    quality: 'm7',
+    rootString: 2,
+    frets: [-1, -1, 0, 2, 1, 1],
+    openFingers: [0, 0, 0, 2, 1, 1],
+    movableFingers: [0, 0, 1, 3, 2, 2],
+  ),
+  _GuitarShapeTemplate(
+    quality: 'sus4',
+    rootString: 2,
+    frets: [-1, -1, 0, 2, 3, 3],
+    openFingers: [0, 0, 0, 1, 2, 3],
+    movableFingers: [0, 0, 1, 2, 3, 3],
+    barreStrings: (4, 5),
+  ),
+];
+
+_GuitarChordShape? _guitarChordShape(String chord) {
+  final match = RegExp(
+    r'^([A-Ga-g][#b]?)(maj7|m7|sus4|m|7)?(?:/([A-Ga-g][#b]?))?$',
+    caseSensitive: false,
+  ).firstMatch(chord);
+  if (match == null) return null;
+
+  int? pitch(String? note) {
+    if (note == null) return null;
+    return _chordPitchClasses['${note[0].toUpperCase()}${note.substring(1)}'];
+  }
+
+  final root = pitch(match.group(1));
+  if (root == null) return null;
+  final quality = match.group(2)?.toLowerCase() ?? '';
+  final requestedBass = pitch(match.group(3));
+  final candidates = <_GuitarChordShape>[];
+  for (final template in _guitarShapeTemplates) {
+    if (template.quality != quality) continue;
+    final baseFret =
+        (root - _guitarStrings[template.rootString].pitch + 12) % 12;
+    final frets = [
+      for (final fret in template.frets)
+        if (fret < 0) -1 else if (baseFret == 0) fret else fret + baseFret,
+    ];
+    final lowestString = frets.indexWhere((fret) => fret >= 0);
+    final bass =
+        (_guitarStrings[lowestString].pitch + frets[lowestString]) % 12;
+    if (requestedBass != null && requestedBass != bass) continue;
+    candidates.add(
+      _GuitarChordShape(
+        frets: frets,
+        fingers: baseFret == 0 ? template.openFingers : template.movableFingers,
+        baseFret: baseFret,
+        barreStrings: baseFret == 0 ? null : template.barreStrings,
+      ),
+    );
+  }
+  if (candidates.isEmpty) return null;
+  candidates.sort((first, second) => first.baseFret.compareTo(second.baseFret));
+  return candidates.first;
+}
+
+({List<int> notes})? _chordNotes(String chord) {
+  final match = RegExp(
+    r'^([A-Ga-g][#b]?)(maj7|m7|sus4|dim|m|7)?(?:/([A-Ga-g][#b]?))?$',
+    caseSensitive: false,
+  ).firstMatch(chord);
+  if (match == null) return null;
+
+  int? pitch(String? note) {
+    if (note == null) return null;
+    final normalized = '${note[0].toUpperCase()}${note.substring(1)}';
+    return _chordPitchClasses[normalized];
+  }
+
+  final root = pitch(match.group(1));
+  if (root == null) return null;
+  final quality = match.group(2)?.toLowerCase() ?? '';
+  final intervals = switch (quality) {
+    'm' => [0, 3, 7],
+    '7' => [0, 4, 7, 10],
+    'maj7' => [0, 4, 7, 11],
+    'm7' => [0, 3, 7, 10],
+    'sus4' => [0, 5, 7],
+    'dim' => [0, 3, 6],
+    _ => [0, 4, 7],
+  };
+  final notes = intervals.map((interval) => (root + interval) % 12).toList();
+  final bass = pitch(match.group(3));
+  if (bass != null && !notes.contains(bass)) notes.insert(0, bass);
+  return (notes: notes);
+}
+
 class SongLibraryScreen extends StatefulWidget {
   const SongLibraryScreen({
     super.key,
@@ -371,6 +666,8 @@ class SongDetailScreen extends StatefulWidget {
 }
 
 class _SongDetailScreenState extends State<SongDetailScreen> {
+  _ChordInstrument _instrument = _ChordInstrument.guitar;
+
   Future<void> _addSection() async {
     final section = await showModalBottomSheet<NewSection>(
       context: context,
@@ -505,6 +802,31 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
               ],
               const SizedBox(height: 20),
               _SongMetadata(song: song, onKeyChanged: _changeSongKey),
+              const SizedBox(height: 22),
+              Text(
+                'Instrumento',
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 8),
+              SegmentedButton<_ChordInstrument>(
+                segments: const [
+                  ButtonSegment(
+                    value: _ChordInstrument.guitar,
+                    label: Text('Violão'),
+                    icon: Icon(Icons.music_note),
+                  ),
+                  ButtonSegment(
+                    value: _ChordInstrument.keyboard,
+                    label: Text('Teclado'),
+                    icon: Icon(Icons.piano),
+                  ),
+                ],
+                selected: {_instrument},
+                onSelectionChanged: (selection) {
+                  setState(() => _instrument = selection.first);
+                },
+              ),
               const SizedBox(height: 26),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -534,6 +856,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _SectionCard(
                       section: section,
+                      instrument: _instrument,
                       onDelete: () => _deleteSection(section),
                     ),
                   ),
@@ -863,10 +1186,7 @@ class _MetadataCard extends StatelessWidget {
           const SizedBox(height: 5),
           SizedBox(
             height: 28,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: content,
-            ),
+            child: Align(alignment: Alignment.centerLeft, child: content),
           ),
         ],
       ),
@@ -875,9 +1195,14 @@ class _MetadataCard extends StatelessWidget {
 }
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.section, required this.onDelete});
+  const _SectionCard({
+    required this.section,
+    required this.instrument,
+    required this.onDelete,
+  });
 
   final SongSection section;
+  final _ChordInstrument instrument;
   final VoidCallback onDelete;
 
   @override
@@ -954,6 +1279,7 @@ class _SectionCard extends StatelessWidget {
                       child: _MeasureCard(
                         number: index + 1,
                         chords: section.measures[index],
+                        instrument: instrument,
                       ),
                     ),
                 ],
@@ -967,10 +1293,15 @@ class _SectionCard extends StatelessWidget {
 }
 
 class _MeasureCard extends StatelessWidget {
-  const _MeasureCard({required this.number, required this.chords});
+  const _MeasureCard({
+    required this.number,
+    required this.chords,
+    required this.instrument,
+  });
 
   final int number;
   final String chords;
+  final _ChordInstrument instrument;
 
   @override
   Widget build(BuildContext context) {
@@ -993,18 +1324,416 @@ class _MeasureCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            chords,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: AppColors.forest,
-              fontWeight: FontWeight.w800,
-              fontFamily: 'monospace',
-            ),
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: [
+              for (final chord in chords.split(RegExp(r'\s+')))
+                _ChordButton(chord: chord, instrument: instrument),
+            ],
           ),
         ],
       ),
     );
   }
+}
+
+class _ChordButton extends StatelessWidget {
+  const _ChordButton({required this.chord, required this.instrument});
+
+  final String chord;
+  final _ChordInstrument instrument;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Ver acorde de $chord',
+      child: Material(
+        color: AppColors.softGreen,
+        borderRadius: BorderRadius.circular(6),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(6),
+          onTap: () => showModalBottomSheet<void>(
+            context: context,
+            isScrollControlled: true,
+            builder: (_) =>
+                _ChordDiagramSheet(chord: chord, instrument: instrument),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+            child: Text(
+              chord,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: AppColors.forest,
+                fontWeight: FontWeight.w800,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChordDiagramSheet extends StatelessWidget {
+  const _ChordDiagramSheet({required this.chord, required this.instrument});
+
+  final String chord;
+  final _ChordInstrument instrument;
+
+  @override
+  Widget build(BuildContext context) {
+    final chordNotes = _chordNotes(chord);
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    chord,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: AppColors.forest,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Fechar',
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            if (instrument == _ChordInstrument.guitar)
+              _GuitarChordDiagram(chord: chord)
+            else if (chordNotes == null)
+              const Text('Não foi possível exibir este acorde.')
+            else ...[
+              Text(
+                'Notas: ${chordNotes.notes.map((note) => _chordPitchNames[note]).join(' · ')}',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 18),
+              _KeyboardChordDiagram(chordNotes: chordNotes),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GuitarChordDiagram extends StatelessWidget {
+  const _GuitarChordDiagram({required this.chord});
+
+  final String chord;
+
+  @override
+  Widget build(BuildContext context) {
+    final shape = _guitarChordShape(chord);
+    return Column(
+      key: const ValueKey('guitar-chord-diagram'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (shape == null)
+          const Text('Desenho padrão indisponível para este acorde.')
+        else ...[
+          Text(
+            shape.baseFret == 0
+                ? 'Posição aberta'
+                : 'Posição móvel · casa ${shape.baseFret}',
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            key: const ValueKey('guitar-fretboard'),
+            width: double.infinity,
+            height: 196,
+            child: CustomPaint(
+              painter: _GuitarFretboardPainter(shape),
+              child: const SizedBox.expand(),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'X: não toque · O: corda solta · números: dedos',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _GuitarFretboardPainter extends CustomPainter {
+  const _GuitarFretboardPainter(this.shape);
+
+  final _GuitarChordShape shape;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const left = 39.0;
+    const right = 4.0;
+    const top = 29.0;
+    const bottom = 8.0;
+    final neck = Rect.fromLTRB(
+      left,
+      top,
+      size.width - right,
+      size.height - bottom,
+    );
+    final fretWidth = neck.width / 5;
+    final stringGap = neck.height / (_guitarStrings.length - 1);
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(neck, const Radius.circular(5)),
+      Paint()..color = const Color(0xFFE8C99B),
+    );
+
+    final labelStyle = const TextStyle(
+      color: AppColors.muted,
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+    );
+    final firstFret = shape.baseFret <= 1 ? 1 : shape.baseFret;
+    for (var fret = 0; fret <= 5; fret++) {
+      final fretNumber = firstFret + fret;
+      _drawLabel(
+        canvas,
+        '$fretNumber',
+        Offset(left + fretWidth * (fret + 0.5), 11),
+        labelStyle,
+      );
+    }
+
+    final fretPaint = Paint()
+      ..color = const Color(0xFF8A735B)
+      ..strokeWidth = 2;
+    for (var fret = 0; fret <= 5; fret++) {
+      final x = left + fretWidth * fret;
+      canvas.drawLine(Offset(x, top), Offset(x, neck.bottom), fretPaint);
+    }
+    if (shape.baseFret <= 1) {
+      canvas.drawLine(
+        Offset(left, top),
+        Offset(left, neck.bottom),
+        Paint()
+          ..color = const Color(0xFFFAF7F0)
+          ..strokeWidth = 5,
+      );
+    }
+
+    final stringPaint = Paint()
+      ..color = const Color(0xFF6C5842)
+      ..strokeCap = StrokeCap.round;
+    for (
+      var stringIndex = 0;
+      stringIndex < _guitarStrings.length;
+      stringIndex++
+    ) {
+      final string = _guitarStrings[stringIndex];
+      final y = top + stringGap * stringIndex;
+      _drawLabel(
+        canvas,
+        string.name,
+        Offset(12, y),
+        const TextStyle(
+          color: AppColors.forest,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+        ),
+      );
+
+      canvas.drawLine(
+        Offset(left, y),
+        Offset(neck.right, y),
+        stringPaint..strokeWidth = 1.0 + stringIndex * 0.25,
+      );
+
+      final fret = shape.frets[stringIndex];
+      if (fret < 0) {
+        _drawLabel(
+          canvas,
+          '×',
+          Offset(left - 14, y),
+          const TextStyle(
+            color: AppColors.clay,
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+          ),
+        );
+      } else if (fret == 0) {
+        canvas.drawCircle(
+          Offset(left - 14, y),
+          5,
+          Paint()
+            ..color = AppColors.forest
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.5,
+        );
+      }
+    }
+
+    final barre = shape.barreStrings;
+    if (barre != null) {
+      final barreFret = shape.frets[barre.$1];
+      if (barreFret >= firstFret && barreFret < firstFret + 5) {
+        final y1 = top + stringGap * barre.$1;
+        final y2 = top + stringGap * barre.$2;
+        final x = left + fretWidth * (barreFret - firstFret + 0.5);
+        canvas.drawLine(
+          Offset(x, y1),
+          Offset(x, y2),
+          Paint()
+            ..color = AppColors.forest
+            ..strokeWidth = 15
+            ..strokeCap = StrokeCap.round,
+        );
+        _drawLabel(
+          canvas,
+          '${shape.fingers[barre.$1]}',
+          Offset(x, (y1 + y2) / 2),
+          const TextStyle(
+            color: Colors.white,
+            fontSize: 9,
+            fontWeight: FontWeight.w800,
+          ),
+        );
+      }
+    }
+
+    final notePaint = Paint()..color = AppColors.forest;
+    for (
+      var stringIndex = 0;
+      stringIndex < _guitarStrings.length;
+      stringIndex++
+    ) {
+      final fret = shape.frets[stringIndex];
+      if (fret <= 0) continue;
+      final finger = shape.fingers[stringIndex];
+      if (finger == 0) continue;
+      final barre = shape.barreStrings;
+      if (barre != null &&
+          stringIndex >= barre.$1 &&
+          stringIndex <= barre.$2 &&
+          fret == shape.frets[barre.$1] &&
+          finger == shape.fingers[barre.$1]) {
+        continue;
+      }
+      final fretInView = fret - firstFret;
+      if (fretInView < 0 || fretInView >= 5) continue;
+      final x = left + fretWidth * (fretInView + 0.5);
+      final y = top + stringGap * stringIndex;
+      canvas.drawCircle(Offset(x, y), 11, notePaint);
+      _drawLabel(
+        canvas,
+        '$finger',
+        Offset(x, y),
+        const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+        ),
+      );
+    }
+  }
+
+  void _drawLabel(Canvas canvas, String label, Offset center, TextStyle style) {
+    final text = TextPainter(
+      text: TextSpan(text: label, style: style),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    text.paint(canvas, center - Offset(text.width / 2, text.height / 2));
+  }
+
+  @override
+  bool shouldRepaint(covariant _GuitarFretboardPainter oldDelegate) =>
+      oldDelegate.shape != shape;
+}
+
+class _KeyboardChordDiagram extends StatelessWidget {
+  const _KeyboardChordDiagram({required this.chordNotes});
+
+  final ({List<int> notes}) chordNotes;
+
+  @override
+  Widget build(BuildContext context) {
+    final highlighted = chordNotes.notes.toSet();
+    return Column(
+      key: const ValueKey('keyboard-chord-diagram'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Notas destacadas em duas oitavas'),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 130,
+          width: double.infinity,
+          child: CustomPaint(
+            painter: _KeyboardPainter(highlighted),
+            child: const SizedBox.expand(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _KeyboardPainter extends CustomPainter {
+  const _KeyboardPainter(this.highlighted);
+
+  final Set<int> highlighted;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const whiteNotes = [0, 2, 4, 5, 7, 9, 11];
+    const blackNotes = [1, 3, 6, 8, 10];
+    const blackOffsets = [1, 2, 4, 5, 6];
+    final whiteWidth = size.width / 14;
+    final whitePaint = Paint()..color = Colors.white;
+    final highlightedPaint = Paint()..color = AppColors.softGreen;
+    final borderPaint = Paint()
+      ..color = AppColors.muted
+      ..style = PaintingStyle.stroke;
+
+    for (var key = 0; key < 14; key++) {
+      final pitch = whiteNotes[key % 7];
+      final rect = Rect.fromLTWH(key * whiteWidth, 0, whiteWidth, size.height);
+      canvas.drawRect(
+        rect,
+        highlighted.contains(pitch) ? highlightedPaint : whitePaint,
+      );
+      canvas.drawRect(rect, borderPaint);
+    }
+
+    final blackWidth = whiteWidth * 0.62;
+    final blackHeight = size.height * 0.62;
+    final blackPaint = Paint()..color = const Color(0xFF333333);
+    final highlightedBlackPaint = Paint()..color = AppColors.forest;
+    for (var octave = 0; octave < 2; octave++) {
+      for (var index = 0; index < blackNotes.length; index++) {
+        final pitch = blackNotes[index];
+        final rect = Rect.fromLTWH(
+          (octave * 7 + blackOffsets[index]) * whiteWidth - blackWidth / 2,
+          0,
+          blackWidth,
+          blackHeight,
+        );
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(rect, const Radius.circular(3)),
+          highlighted.contains(pitch) ? highlightedBlackPaint : blackPaint,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _KeyboardPainter oldDelegate) =>
+      oldDelegate.highlighted != highlighted;
 }
 
 class _EmptyLibrary extends StatelessWidget {

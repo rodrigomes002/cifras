@@ -183,6 +183,47 @@ void main() {
     expect(tester.getSize(keyCard).height, tester.getSize(tempoCard).height);
   });
 
+  testWidgets('exibe acordes no instrumento selecionado', (tester) async {
+    final repository = _MemorySongRepository();
+    await repository.addSong(
+      const NewSong(title: 'Canção teste', artist: '', key: 'Am', tempo: null),
+    );
+    await repository.addSection(
+      1,
+      const NewSection(title: 'Verso', measures: ['Am G']),
+    );
+    await tester.pumpWidget(CifrasApp(repository: repository));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Canção teste'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Ver acorde de Am'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('guitar-chord-diagram')), findsOneWidget);
+    expect(find.byKey(const ValueKey('guitar-fretboard')), findsOneWidget);
+    expect(find.text('Posição aberta'), findsOneWidget);
+    expect(find.textContaining('números: dedos'), findsOneWidget);
+    await tester.tap(find.byTooltip('Fechar'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Ver acorde de G'));
+    await tester.pumpAndSettle();
+    expect(find.text('Posição móvel · casa 3'), findsOneWidget);
+    expect(find.byKey(const ValueKey('guitar-fretboard')), findsOneWidget);
+    await tester.tap(find.byTooltip('Fechar'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Teclado'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Ver acorde de Am'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('keyboard-chord-diagram')),
+      findsOneWidget,
+    );
+    expect(find.text('Notas: A · C · E'), findsOneWidget);
+  });
+
   testWidgets('aplica a identidade visual e exibe a marca', (tester) async {
     await tester.pumpWidget(CifrasApp(repository: _MemorySongRepository()));
     await tester.pumpAndSettle();
