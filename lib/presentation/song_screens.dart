@@ -1916,7 +1916,6 @@ class _SongFormSheetState extends State<_SongFormSheet> {
   final _artist = TextEditingController();
   final _key = TextEditingController();
   final _tempo = TextEditingController();
-  String _timeSignature = '4/4';
 
   @override
   void dispose() {
@@ -1937,7 +1936,6 @@ class _SongFormSheetState extends State<_SongFormSheet> {
         artist: _artist.text.trim(),
         key: _key.text.trim(),
         tempo: tempoText.isEmpty ? null : int.parse(tempoText),
-        timeSignature: _timeSignature,
       ),
     );
   }
@@ -2006,25 +2004,6 @@ class _SongFormSheetState extends State<_SongFormSheet> {
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: _timeSignature,
-              decoration: const InputDecoration(
-                labelText: 'Fórmula de compasso',
-                helperText: 'Quantidade e tipo de tempos em cada compasso.',
-              ),
-              items: _timeSignatures
-                  .map(
-                    (signature) => DropdownMenuItem(
-                      value: signature,
-                      child: Text(signature),
-                    ),
-                  )
-                  .toList(growable: false),
-              onChanged: (value) {
-                if (value != null) setState(() => _timeSignature = value);
-              },
             ),
           ],
         ),
