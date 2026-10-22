@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:path/path.dart' as path;
 import 'package:sqflite/sqflite.dart';
@@ -75,62 +74,6 @@ class SqliteSongRepository implements SongRepository {
     return openedDatabase;
   }
 
-  Future<String> get databasePath async =>
-      path.join(await getDatabasesPath(), 'cifras.db');
-
-  Future<void> closeDatabase() async {
-    final database = _database;
-    if (database == null) return;
-
-    await database.close();
-    _database = null;
-  }
-
-  Future<void> replaceDatabase(File replacement) async {
-    final validationDatabase = await openDatabase(
-      replacement.path,
-      readOnly: true,
-    );
-    try {
-      await validationDatabase.rawQuery('SELECT * FROM songs LIMIT 0');
-      await validationDatabase.rawQuery('SELECT * FROM sections LIMIT 0');
-    } finally {
-      await validationDatabase.close();
-    }
-
-    await closeDatabase();
-
-    final databaseFile = File(await databasePath);
-    final temporaryFile = File(
-      '${databaseFile.path}.sync-${DateTime.now().microsecondsSinceEpoch}',
-    );
-    final backupFile = File('${temporaryFile.path}.backup');
-    var movedOriginal = false;
-    var installedReplacement = false;
-
-    try {
-      await replacement.copy(temporaryFile.path);
-      if (await databaseFile.exists()) {
-        await databaseFile.rename(backupFile.path);
-        movedOriginal = true;
-      }
-      await temporaryFile.rename(databaseFile.path);
-      installedReplacement = true;
-    } catch (_) {
-      if (movedOriginal && !await databaseFile.exists()) {
-        await backupFile.rename(databaseFile.path);
-      }
-      rethrow;
-    } finally {
-      if (await temporaryFile.exists()) {
-        await temporaryFile.delete();
-      }
-      if (installedReplacement && await backupFile.exists()) {
-        await backupFile.delete();
-      }
-    }
-  }
-
   @override
   Future<List<Song>> getSongs() async {
     final db = await _db;
@@ -167,6 +110,35 @@ class SqliteSongRepository implements SongRepository {
           );
         })
         .toList(growable: false);
+  }
+
+  @override
+  Future<void> replaceSongs(List<Song> songs) async {
+    final db = await _db;
+    await db.transaction((transaction) async {
+      await transaction.delete('sections');
+      await transaction.delete('songs');
+
+      for (final song in songs.reversed) {
+        final songId = await transaction.insert('songs', {
+          'title': song.title,
+          'artist': song.artist,
+          'song_key': song.key,
+          'tempo': song.tempo,
+          'time_signature': song.timeSignature,
+          'is_favorite': song.isFavorite ? 1 : 0,
+        });
+        for (final section in song.sections) {
+          await transaction.insert('sections', {
+            'song_id': songId,
+            'title': section.title,
+            'measures': jsonEncode(section.measures),
+            'position': section.position,
+            'time_signature': section.timeSignature,
+          });
+        }
+      }
+    });
   }
 
   @override

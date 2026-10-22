@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
-import '../domain/database_sync_service.dart';
 import '../domain/music_transposition.dart';
+import '../domain/song_backup.dart';
 import '../domain/song.dart';
 import '../theme/app_theme.dart';
 import 'cifras_logo.dart';
@@ -47,6 +50,10 @@ const _chordQualities = {
 };
 
 enum _ChordInstrument { guitar, keyboard }
+
+enum _LibraryBackupAction { export, import }
+
+enum _CagedShape { c, a, g, e, d }
 
 const _chordPitchNames = [
   'C',
@@ -115,6 +122,28 @@ class _GuitarChordShape {
   final (int, int)? barreStrings;
 }
 
+class _CagedShapeTemplate {
+  const _CagedShapeTemplate({
+    required this.shape,
+    required this.quality,
+    required this.rootString,
+    required this.rootFret,
+    required this.frets,
+    required this.openFingers,
+    required this.movableFingers,
+    this.barreStrings,
+  });
+
+  final _CagedShape shape;
+  final String quality;
+  final int rootString;
+  final int rootFret;
+  final List<int> frets;
+  final List<int> openFingers;
+  final List<int> movableFingers;
+  final (int, int)? barreStrings;
+}
+
 const _guitarStrings = [
   (name: 'E', pitch: 4),
   (name: 'A', pitch: 9),
@@ -122,6 +151,107 @@ const _guitarStrings = [
   (name: 'G', pitch: 7),
   (name: 'B', pitch: 11),
   (name: 'e', pitch: 4),
+];
+
+const _cagedShapeTemplates = [
+  _CagedShapeTemplate(
+    shape: _CagedShape.c,
+    quality: '',
+    rootString: 1,
+    rootFret: 3,
+    frets: [-1, 3, 2, 0, 1, 0],
+    openFingers: [0, 3, 2, 0, 1, 0],
+    movableFingers: [0, 1, 3, 0, 2, 1],
+    barreStrings: (1, 5),
+  ),
+  _CagedShapeTemplate(
+    shape: _CagedShape.c,
+    quality: 'm',
+    rootString: 1,
+    rootFret: 3,
+    frets: [-1, 3, 5, 5, 4, 3],
+    openFingers: [0, 1, 3, 4, 2, 1],
+    movableFingers: [0, 1, 3, 4, 2, 1],
+    barreStrings: (1, 5),
+  ),
+  _CagedShapeTemplate(
+    shape: _CagedShape.a,
+    quality: '',
+    rootString: 1,
+    rootFret: 0,
+    frets: [-1, 0, 2, 2, 2, 0],
+    openFingers: [0, 0, 2, 3, 4, 0],
+    movableFingers: [0, 1, 3, 3, 3, 1],
+    barreStrings: (1, 5),
+  ),
+  _CagedShapeTemplate(
+    shape: _CagedShape.a,
+    quality: 'm',
+    rootString: 1,
+    rootFret: 0,
+    frets: [-1, 0, 2, 2, 1, 0],
+    openFingers: [0, 0, 2, 3, 1, 0],
+    movableFingers: [0, 1, 3, 3, 2, 1],
+    barreStrings: (1, 5),
+  ),
+  _CagedShapeTemplate(
+    shape: _CagedShape.g,
+    quality: '',
+    rootString: 0,
+    rootFret: 3,
+    frets: [3, 2, 0, 0, 0, 3],
+    openFingers: [2, 1, 0, 0, 0, 3],
+    movableFingers: [2, 1, 1, 1, 1, 3],
+    barreStrings: (2, 4),
+  ),
+  _CagedShapeTemplate(
+    shape: _CagedShape.g,
+    quality: 'm',
+    rootString: 0,
+    rootFret: 3,
+    frets: [3, 5, 5, 3, 3, 3],
+    openFingers: [1, 3, 4, 1, 1, 1],
+    movableFingers: [1, 3, 4, 1, 1, 1],
+    barreStrings: (0, 5),
+  ),
+  _CagedShapeTemplate(
+    shape: _CagedShape.e,
+    quality: '',
+    rootString: 0,
+    rootFret: 0,
+    frets: [0, 2, 2, 1, 0, 0],
+    openFingers: [0, 2, 3, 1, 0, 0],
+    movableFingers: [1, 3, 4, 2, 1, 1],
+    barreStrings: (0, 5),
+  ),
+  _CagedShapeTemplate(
+    shape: _CagedShape.e,
+    quality: 'm',
+    rootString: 0,
+    rootFret: 0,
+    frets: [0, 2, 2, 0, 0, 0],
+    openFingers: [0, 2, 3, 0, 0, 0],
+    movableFingers: [1, 3, 4, 1, 1, 1],
+    barreStrings: (0, 5),
+  ),
+  _CagedShapeTemplate(
+    shape: _CagedShape.d,
+    quality: '',
+    rootString: 2,
+    rootFret: 0,
+    frets: [-1, -1, 0, 2, 3, 2],
+    openFingers: [0, 0, 0, 1, 3, 2],
+    movableFingers: [0, 0, 1, 3, 4, 2],
+  ),
+  _CagedShapeTemplate(
+    shape: _CagedShape.d,
+    quality: 'm',
+    rootString: 2,
+    rootFret: 0,
+    frets: [-1, -1, 0, 2, 3, 1],
+    openFingers: [0, 0, 0, 2, 3, 1],
+    movableFingers: [0, 0, 1, 3, 4, 2],
+  ),
 ];
 
 const _guitarShapeTemplates = [
@@ -267,7 +397,10 @@ const _guitarShapeTemplates = [
   ),
 ];
 
-_GuitarChordShape? _guitarChordShape(String chord) {
+_GuitarChordShape? _guitarChordShape(
+  String chord, {
+  _CagedShape? selectedShape,
+}) {
   final match = RegExp(
     r'^([A-Ga-g][#b]?)(maj7|m7|sus4|m|7)?(?:/([A-Ga-g][#b]?))?$',
     caseSensitive: false,
@@ -283,6 +416,36 @@ _GuitarChordShape? _guitarChordShape(String chord) {
   if (root == null) return null;
   final quality = match.group(2)?.toLowerCase() ?? '';
   final requestedBass = pitch(match.group(3));
+  if (selectedShape != null) {
+    if (requestedBass != null && requestedBass != root) return null;
+    for (final template in _cagedShapeTemplates) {
+      if (template.shape != selectedShape || template.quality != quality) {
+        continue;
+      }
+      final rootFret =
+          (root - _guitarStrings[template.rootString].pitch + 12) % 12;
+      var shift = rootFret - template.rootFret;
+      if (shift < 0) shift += 12;
+      final frets = [
+        for (final fret in template.frets)
+          if (fret < 0) -1 else fret + shift,
+      ];
+      final pressedFrets = frets.where((fret) => fret > 0);
+      final baseFret = shift == 0
+          ? 0
+          : pressedFrets.reduce(
+              (first, second) => first < second ? first : second,
+            );
+      return _GuitarChordShape(
+        frets: frets,
+        fingers: shift == 0 ? template.openFingers : template.movableFingers,
+        baseFret: baseFret,
+        barreStrings: shift == 0 ? null : template.barreStrings,
+      );
+    }
+    return null;
+  }
+
   final candidates = <_GuitarChordShape>[];
   for (final template in _guitarShapeTemplates) {
     if (template.quality != quality) continue;
@@ -308,6 +471,30 @@ _GuitarChordShape? _guitarChordShape(String chord) {
   if (candidates.isEmpty) return null;
   candidates.sort((first, second) => first.baseFret.compareTo(second.baseFret));
   return candidates.first;
+}
+
+_CagedShape _defaultCagedShape(String chord) {
+  final match = RegExp(
+    r'^([A-Ga-g][#b]?)(maj7|m7|sus4|m|7)?(?:/([A-Ga-g][#b]?))?$',
+    caseSensitive: false,
+  ).firstMatch(chord);
+  if (match == null) return _CagedShape.c;
+  final root =
+      _chordPitchClasses['${match.group(1)![0].toUpperCase()}${match.group(1)!.substring(1)}'];
+  if (root == null) return _CagedShape.c;
+  final quality = match.group(2)?.toLowerCase() ?? '';
+  final candidates = _cagedShapeTemplates
+      .where((template) => template.quality == quality)
+      .map((template) {
+        final rootFret =
+            (root - _guitarStrings[template.rootString].pitch + 12) % 12;
+        final shift = (rootFret - template.rootFret + 12) % 12;
+        return (shape: template.shape, shift: shift);
+      })
+      .toList();
+  if (candidates.isEmpty) return _CagedShape.c;
+  candidates.sort((first, second) => first.shift.compareTo(second.shift));
+  return candidates.first.shape;
 }
 
 ({List<int> notes})? _chordNotes(String chord) {
@@ -342,14 +529,9 @@ _GuitarChordShape? _guitarChordShape(String chord) {
 }
 
 class SongLibraryScreen extends StatefulWidget {
-  const SongLibraryScreen({
-    super.key,
-    required this.viewModel,
-    this.databaseSyncService,
-  });
+  const SongLibraryScreen({super.key, required this.viewModel});
 
   final SongLibraryViewModel viewModel;
-  final DatabaseSyncService? databaseSyncService;
 
   @override
   State<SongLibraryScreen> createState() => _SongLibraryScreenState();
@@ -357,7 +539,7 @@ class SongLibraryScreen extends StatefulWidget {
 
 class _SongLibraryScreenState extends State<SongLibraryScreen> {
   String _search = '';
-  bool _isSyncing = false;
+  bool _isManagingBackup = false;
 
   Future<void> _createSong() async {
     final song = await showModalBottomSheet<NewSong>(
@@ -388,92 +570,93 @@ class _SongLibraryScreenState extends State<SongLibraryScreen> {
     );
   }
 
-  Future<void> _syncDatabase() async {
-    final service = widget.databaseSyncService;
-    if (service == null || _isSyncing) return;
-
-    setState(() => _isSyncing = true);
-    unawaited(
-      showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => PopScope(
-          canPop: false,
-          child: const AlertDialog(
-            content: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.cloud_sync_outlined),
-                SizedBox(width: 12),
-                Flexible(child: Text('Sincronizando com Google Drive...')),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-    DatabaseSyncResult? result;
-    Object? syncError;
-    try {
-      result = await service.synchronize(
-        resolveConflict: ({required isFirstSync}) =>
-            showDialog<DatabaseSyncChoice>(
-              context: context,
-              barrierDismissible: false,
-              builder: (context) => AlertDialog(
-                title: Text(
-                  isFirstSync
-                      ? 'Escolha o banco para sincronizar'
-                      : 'As cifras foram alteradas nos dois lados',
-                ),
-                content: Text(
-                  isFirstSync
-                      ? 'Já existe um banco no Google Drive. Escolha qual versão manter.'
-                      : 'Escolha qual versão manter. A outra será substituída.',
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancelar'),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(
-                      context,
-                      DatabaseSyncChoice.downloadDrive,
-                    ),
-                    child: const Text('Usar versão do Drive'),
-                  ),
-                  FilledButton(
-                    onPressed: () =>
-                        Navigator.pop(context, DatabaseSyncChoice.uploadLocal),
-                    child: const Text('Enviar versão local'),
-                  ),
-                ],
-              ),
-            ),
-      );
-      await widget.viewModel.load();
-    } catch (error) {
-      syncError = error;
-      await widget.viewModel.load();
-    } finally {
-      if (mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-        setState(() => _isSyncing = false);
-      }
+  void _handleBackupAction(_LibraryBackupAction action) {
+    switch (action) {
+      case _LibraryBackupAction.export:
+        unawaited(_exportBackup());
+      case _LibraryBackupAction.import:
+        unawaited(_importBackup());
     }
-    if (!mounted) return;
-    if (syncError != null) {
-      _showError('Não foi possível sincronizar com o Google Drive: $syncError');
+  }
+
+  Future<void> _exportBackup() async {
+    if (_isManagingBackup) return;
+    if (widget.viewModel.isLoading) {
+      _showError('Aguarde o carregamento das cifras antes de exportar.');
       return;
     }
-    final message = switch (result!) {
-      DatabaseSyncResult.uploaded => 'Banco enviado ao Google Drive.',
-      DatabaseSyncResult.downloaded => 'Banco restaurado do Google Drive.',
-      DatabaseSyncResult.alreadySynced => 'O banco já está sincronizado.',
-      DatabaseSyncResult.cancelled => null,
-    };
-    if (message != null) _showError(message);
+    if (widget.viewModel.loadError != null) {
+      _showError('Não foi possível carregar as cifras para exportação.');
+      return;
+    }
+    setState(() => _isManagingBackup = true);
+    try {
+      final saveLocation = await FilePicker.saveFile(
+        dialogTitle: 'Salvar backup das cifras',
+        fileName: 'cifras.json',
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+        mimeType: 'application/json',
+        bytes: Uint8List.fromList(
+          utf8.encode(encodeSongBackup(widget.viewModel.songs)),
+        ),
+      );
+      if (saveLocation != null && mounted) {
+        _showError('Backup salvo com sucesso.');
+      }
+    } catch (error) {
+      if (mounted) _showError('Não foi possível exportar o backup: $error');
+    } finally {
+      if (mounted) setState(() => _isManagingBackup = false);
+    }
+  }
+
+  Future<void> _importBackup() async {
+    if (_isManagingBackup) return;
+    setState(() => _isManagingBackup = true);
+    try {
+      final file = await FilePicker.pickFile(
+        dialogTitle: 'Importar backup JSON',
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+      );
+      if (file == null || !mounted) return;
+
+      final songs = decodeSongBackup(utf8.decode(await file.readAsBytes()));
+      if (!mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Substituir repertório?'),
+          content: Text(
+            'A importação substituirá todas as cifras atuais por '
+            '${songs.length} ${songs.length == 1 ? 'cifra' : 'cifras'}.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Substituir'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+
+      await widget.viewModel.replaceSongs(songs);
+      if (mounted) {
+        _showError(
+          '${songs.length} ${songs.length == 1 ? 'cifra importada' : 'cifras importadas'}.',
+        );
+      }
+    } catch (error) {
+      if (mounted) _showError('Não foi possível importar o backup: $error');
+    } finally {
+      if (mounted) setState(() => _isManagingBackup = false);
+    }
   }
 
   @override
@@ -492,12 +675,28 @@ class _SongLibraryScreenState extends State<SongLibraryScreen> {
           ],
         ),
         actions: [
-          if (widget.databaseSyncService != null)
-            IconButton(
-              tooltip: 'Sincronizar com Google Drive',
-              onPressed: _isSyncing ? null : _syncDatabase,
-              icon: const Icon(Icons.cloud_sync_outlined),
-            ),
+          PopupMenuButton<_LibraryBackupAction>(
+            key: const ValueKey('backup-actions'),
+            tooltip: 'Importar ou exportar JSON',
+            enabled: !_isManagingBackup,
+            onSelected: _handleBackupAction,
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: _LibraryBackupAction.export,
+                child: ListTile(
+                  leading: Icon(Icons.file_upload_outlined),
+                  title: Text('Exportar JSON'),
+                ),
+              ),
+              PopupMenuItem(
+                value: _LibraryBackupAction.import,
+                child: ListTile(
+                  leading: Icon(Icons.file_download_outlined),
+                  title: Text('Importar JSON'),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
       body: AnimatedBuilder(
@@ -643,7 +842,7 @@ class _SongLibraryScreenState extends State<SongLibraryScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _isSyncing ? null : _createSong,
+        onPressed: _isManagingBackup ? null : _createSong,
         icon: const Icon(Icons.add),
         label: const Text('Nova cifra'),
       ),
@@ -1429,25 +1628,68 @@ class _ChordDiagramSheet extends StatelessWidget {
   }
 }
 
-class _GuitarChordDiagram extends StatelessWidget {
+class _GuitarChordDiagram extends StatefulWidget {
   const _GuitarChordDiagram({required this.chord});
 
   final String chord;
 
   @override
+  State<_GuitarChordDiagram> createState() => _GuitarChordDiagramState();
+}
+
+class _GuitarChordDiagramState extends State<_GuitarChordDiagram> {
+  late _CagedShape _selectedShape;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedShape = _defaultCagedShape(widget.chord);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final shape = _guitarChordShape(chord);
+    final shape = _guitarChordShape(
+      widget.chord,
+      selectedShape: _selectedShape,
+    );
     return Column(
       key: const ValueKey('guitar-chord-diagram'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const Text('Forma CAGED'),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final cagedShape in _CagedShape.values)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ChoiceChip(
+                    key: ValueKey('caged-shape-${cagedShape.name}'),
+                    label: Text(cagedShape.name.toUpperCase()),
+                    selected: _selectedShape == cagedShape,
+                    onSelected: (_) {
+                      setState(() => _selectedShape = cagedShape);
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
         if (shape == null)
-          const Text('Desenho padrão indisponível para este acorde.')
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: Text(
+              'Esta forma CAGED está disponível para acordes maiores e menores '
+              'com a fundamental no baixo.',
+            ),
+          )
         else ...[
           Text(
             shape.baseFret == 0
-                ? 'Posição aberta'
-                : 'Posição móvel · casa ${shape.baseFret}',
+                ? 'Forma ${_selectedShape.name.toUpperCase()} · posição aberta'
+                : 'Forma ${_selectedShape.name.toUpperCase()} · casa ${shape.baseFret}',
           ),
           const SizedBox(height: 10),
           SizedBox(
@@ -1581,7 +1823,7 @@ class _GuitarFretboardPainter extends CustomPainter {
 
     final barre = shape.barreStrings;
     if (barre != null) {
-      final barreFret = shape.frets[barre.$1];
+      final barreFret = shape.baseFret;
       if (barreFret >= firstFret && barreFret < firstFret + 5) {
         final y1 = top + stringGap * barre.$1;
         final y2 = top + stringGap * barre.$2;

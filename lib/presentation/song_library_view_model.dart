@@ -25,6 +25,16 @@ class SongLibraryViewModel extends ChangeNotifier {
     }
   }
 
+  Future<void> replaceSongs(List<Song> songs) async {
+    await _repository.replaceSongs(songs);
+    await load();
+    if (loadError != null) {
+      throw StateError(
+        'Não foi possível atualizar a biblioteca após a importação.',
+      );
+    }
+  }
+
   Future<void> addSong(NewSong song) async {
     await _repository.addSong(song);
     await load();

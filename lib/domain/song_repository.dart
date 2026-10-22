@@ -3,6 +3,8 @@ import 'song.dart';
 abstract interface class SongRepository {
   Future<List<Song>> getSongs();
 
+  Future<void> replaceSongs(List<Song> songs);
+
   Future<void> addSong(NewSong song);
 
   Future<void> changeSongKey(int songId, String key);

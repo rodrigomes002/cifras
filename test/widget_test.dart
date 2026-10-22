@@ -1,6 +1,6 @@
 import 'package:cifras/domain/music_transposition.dart';
-import 'package:cifras/domain/database_sync_service.dart';
 import 'package:cifras/domain/song.dart';
+import 'package:cifras/domain/song_backup.dart';
 import 'package:cifras/domain/song_repository.dart';
 import 'package:cifras/main.dart';
 import 'package:cifras/presentation/cifras_logo.dart';
@@ -9,46 +9,56 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('detecta alterações locais, remotas e conflitos de sincronização', () {
-    expect(
-      determineDatabaseSyncAction(
-        localHash: 'local',
-        driveHash: null,
-        lastSyncHash: null,
+  test('backup JSON preserva os dados das cifras e das seções', () {
+    final songs = [
+      const Song(
+        id: 12,
+        title: 'Canção teste',
+        artist: 'Artista',
+        key: 'Am',
+        tempo: 96,
+        timeSignature: '3/4',
+        isFavorite: true,
+        sections: [
+          SongSection(
+            id: 7,
+            songId: 12,
+            title: 'Refrão',
+            measures: ['Am G', 'C'],
+            position: 2,
+            timeSignature: '5/4',
+          ),
+        ],
       ),
-      DatabaseSyncAction.uploadLocal,
+    ];
+
+    final decoded = decodeSongBackup(encodeSongBackup(songs));
+
+    expect(decoded, hasLength(1));
+    expect(decoded.single.title, 'Canção teste');
+    expect(decoded.single.artist, 'Artista');
+    expect(decoded.single.key, 'Am');
+    expect(decoded.single.tempo, 96);
+    expect(decoded.single.timeSignature, '3/4');
+    expect(decoded.single.isFavorite, isTrue);
+    expect(decoded.single.sections, hasLength(1));
+    expect(decoded.single.sections.single.title, 'Refrão');
+    expect(decoded.single.sections.single.measures, ['Am G', 'C']);
+    expect(decoded.single.sections.single.position, 2);
+    expect(decoded.single.sections.single.timeSignature, '5/4');
+  });
+
+  test('rejeita backups JSON inválidos ou de versão não suportada', () {
+    expect(() => decodeSongBackup('{'), throwsFormatException);
+    expect(
+      () => decodeSongBackup('{"format":"cifras","version":99,"songs":[]}'),
+      throwsFormatException,
     );
     expect(
-      determineDatabaseSyncAction(
-        localHash: 'common',
-        driveHash: 'remote',
-        lastSyncHash: 'common',
+      () => decodeSongBackup(
+        '{"format":"cifras","version":1,"songs":[{"title":3}]}',
       ),
-      DatabaseSyncAction.downloadDrive,
-    );
-    expect(
-      determineDatabaseSyncAction(
-        localHash: 'local',
-        driveHash: 'common',
-        lastSyncHash: 'common',
-      ),
-      DatabaseSyncAction.uploadLocal,
-    );
-    expect(
-      determineDatabaseSyncAction(
-        localHash: 'local',
-        driveHash: 'remote',
-        lastSyncHash: 'common',
-      ),
-      DatabaseSyncAction.conflict,
-    );
-    expect(
-      determineDatabaseSyncAction(
-        localHash: 'same',
-        driveHash: 'same',
-        lastSyncHash: null,
-      ),
-      DatabaseSyncAction.alreadySynced,
+      throwsFormatException,
     );
   });
 
@@ -201,14 +211,31 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('guitar-chord-diagram')), findsOneWidget);
     expect(find.byKey(const ValueKey('guitar-fretboard')), findsOneWidget);
-    expect(find.text('Posição aberta'), findsOneWidget);
+    expect(find.text('Forma A · posição aberta'), findsOneWidget);
     expect(find.textContaining('números: dedos'), findsOneWidget);
+    for (final shape in ['c', 'a', 'g', 'e', 'd']) {
+      expect(find.byKey(ValueKey('caged-shape-$shape')), findsOneWidget);
+    }
+    final expectedShapes = {
+      'a': 'Forma A · posição aberta',
+      'c': 'Forma C · casa 12',
+      'g': 'Forma G · casa 5',
+      'e': 'Forma E · casa 5',
+      'd': 'Forma D · casa 7',
+    };
+    for (final entry in expectedShapes.entries) {
+      await tester.tap(find.byKey(ValueKey('caged-shape-${entry.key}')));
+      await tester.pumpAndSettle();
+      expect(find.text(entry.value), findsOneWidget);
+    }
     await tester.tap(find.byTooltip('Fechar'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('Ver acorde de G'));
     await tester.pumpAndSettle();
-    expect(find.text('Posição móvel · casa 3'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('caged-shape-e')));
+    await tester.pumpAndSettle();
+    expect(find.text('Forma E · casa 3'), findsOneWidget);
     expect(find.byKey(const ValueKey('guitar-fretboard')), findsOneWidget);
     await tester.tap(find.byTooltip('Fechar'));
     await tester.pumpAndSettle();
@@ -240,26 +267,16 @@ void main() {
     );
   });
 
-  testWidgets('exibe a escolha de versão ao sincronizar', (tester) async {
-    final syncService = _FakeDatabaseSyncService();
-    await tester.pumpWidget(
-      CifrasApp(
-        repository: _MemorySongRepository(),
-        databaseSyncService: syncService,
-      ),
-    );
+  testWidgets('exibe as ações de exportação e importação JSON', (tester) async {
+    await tester.pumpWidget(CifrasApp(repository: _MemorySongRepository()));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Sincronizar com Google Drive'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-
-    expect(find.text('Escolha o banco para sincronizar'), findsOneWidget);
-    await tester.tap(find.text('Enviar versão local'));
+    await tester.tap(find.byTooltip('Importar ou exportar JSON'));
     await tester.pumpAndSettle();
 
-    expect(syncService.choice, DatabaseSyncChoice.uploadLocal);
-    expect(find.text('Banco enviado ao Google Drive.'), findsOneWidget);
+    expect(find.text('Exportar JSON'), findsOneWidget);
+    expect(find.text('Importar JSON'), findsOneWidget);
+    expect(find.textContaining('Google Drive'), findsNothing);
   });
 
   testWidgets('favorita e desfavorita cifras na biblioteca', (tester) async {
@@ -298,21 +315,6 @@ void main() {
   });
 }
 
-class _FakeDatabaseSyncService implements DatabaseSyncService {
-  DatabaseSyncChoice? choice;
-
-  @override
-  Future<DatabaseSyncResult> synchronize({
-    required Future<DatabaseSyncChoice?> Function({required bool isFirstSync})
-    resolveConflict,
-  }) async {
-    choice = await resolveConflict(isFirstSync: true);
-    return choice == DatabaseSyncChoice.uploadLocal
-        ? DatabaseSyncResult.uploaded
-        : DatabaseSyncResult.cancelled;
-  }
-}
-
 class _MemorySongRepository implements SongRepository {
   final List<Song> _songs = [];
   var _nextSongId = 1;
@@ -320,6 +322,35 @@ class _MemorySongRepository implements SongRepository {
 
   @override
   Future<List<Song>> getSongs() async => List.unmodifiable(_songs);
+
+  @override
+  Future<void> replaceSongs(List<Song> songs) async {
+    _songs
+      ..clear()
+      ..addAll([
+        for (final song in songs)
+          Song(
+            id: _nextSongId++,
+            title: song.title,
+            artist: song.artist,
+            key: song.key,
+            tempo: song.tempo,
+            timeSignature: song.timeSignature,
+            isFavorite: song.isFavorite,
+            sections: [
+              for (final section in song.sections)
+                SongSection(
+                  id: _nextSectionId++,
+                  songId: _nextSongId - 1,
+                  title: section.title,
+                  measures: section.measures,
+                  position: section.position,
+                  timeSignature: section.timeSignature,
+                ),
+            ],
+          ),
+      ]);
+  }
 
   @override
   Future<void> addSong(NewSong song) async {
