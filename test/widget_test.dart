@@ -219,6 +219,38 @@ void main() {
     expect(find.text('Notas: A · C · E'), findsOneWidget);
   });
 
+  testWidgets('exibe acordes diminutos no teclado e no violão', (tester) async {
+    await tester.pumpWidget(CifrasApp(repository: _MemorySongRepository()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Dicionário de acordes'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('chord-dictionary-search')),
+      'Cdim',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('dictionary-chord-Cdim')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('dictionary-chord-Cdim')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('guitar-chord-diagram')), findsOneWidget);
+    expect(find.byKey(const ValueKey('guitar-fretboard-1')), findsOneWidget);
+    await tester.tap(find.byTooltip('Fechar'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Teclado'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('dictionary-chord-Cdim')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('keyboard-chord-diagram')),
+      findsOneWidget,
+    );
+    expect(find.text('Notas: C · Eb · F#'), findsOneWidget);
+  });
+
   testWidgets('adiciona um acorde encontrado no dicionário à seção', (
     tester,
   ) async {

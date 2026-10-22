@@ -170,6 +170,13 @@ const _guitarShapeTemplates = [
     barreStrings: (0, 5),
   ),
   _GuitarShapeTemplate(
+    quality: 'dim',
+    rootString: 1,
+    frets: [-1, 0, 1, 2, 1, -1],
+    openFingers: [0, 1, 2, 4, 3, 0],
+    movableFingers: [0, 1, 2, 4, 3, 0],
+  ),
+  _GuitarShapeTemplate(
     quality: '7',
     rootString: 0,
     frets: [0, 2, 0, 1, 0, 0],
@@ -292,7 +299,7 @@ const _guitarShapeTemplates = [
 List<({int rootString, String rootNote, _GuitarChordShape shape})>
 _guitarChordShapes(String chord) {
   final match = RegExp(
-    r'^([A-Ga-g][#b]?)(maj7|m7|sus4|m|7)?(?:/([A-Ga-g][#b]?))?$',
+    r'^([A-Ga-g][#b]?)(maj7|m7|sus4|dim|m|7)?(?:/([A-Ga-g][#b]?))?$',
     caseSensitive: false,
   ).firstMatch(chord);
   if (match == null) return const [];
@@ -342,7 +349,6 @@ _guitarChordShapes(String chord) {
   for (final template in _guitarShapeTemplates) {
     if (template.quality != quality ||
         template.rootString > 1 ||
-        template.barreStrings == null ||
         template.movableFingers.isEmpty) {
       continue;
     }
