@@ -200,7 +200,7 @@ void main() {
     );
     await repository.addSection(
       1,
-      const NewSection(title: 'Verso', measures: ['Am G']),
+      const NewSection(title: 'Verso', measures: ['Am G C F#']),
     );
     await tester.pumpWidget(CifrasApp(repository: repository));
     await tester.pumpAndSettle();
@@ -211,31 +211,28 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('guitar-chord-diagram')), findsOneWidget);
     expect(find.byKey(const ValueKey('guitar-fretboard')), findsOneWidget);
-    expect(find.text('Forma A · posição aberta'), findsOneWidget);
+    expect(find.text('Shape aberto'), findsOneWidget);
     expect(find.textContaining('números: dedos'), findsOneWidget);
-    for (final shape in ['c', 'a', 'g', 'e', 'd']) {
-      expect(find.byKey(ValueKey('caged-shape-$shape')), findsOneWidget);
-    }
-    final expectedShapes = {
-      'a': 'Forma A · posição aberta',
-      'c': 'Forma C · casa 12',
-      'g': 'Forma G · casa 5',
-      'e': 'Forma E · casa 5',
-      'd': 'Forma D · casa 7',
-    };
-    for (final entry in expectedShapes.entries) {
-      await tester.tap(find.byKey(ValueKey('caged-shape-${entry.key}')));
-      await tester.pumpAndSettle();
-      expect(find.text(entry.value), findsOneWidget);
-    }
     await tester.tap(find.byTooltip('Fechar'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('Ver acorde de G'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('caged-shape-e')));
+    expect(find.text('Shape aberto'), findsOneWidget);
+    expect(find.byKey(const ValueKey('guitar-fretboard')), findsOneWidget);
+    await tester.tap(find.byTooltip('Fechar'));
     await tester.pumpAndSettle();
-    expect(find.text('Forma E · casa 3'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Ver acorde de C'));
+    await tester.pumpAndSettle();
+    expect(find.text('Shape aberto'), findsOneWidget);
+    expect(find.byKey(const ValueKey('guitar-fretboard')), findsOneWidget);
+    await tester.tap(find.byTooltip('Fechar'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Ver acorde de F#'));
+    await tester.pumpAndSettle();
+    expect(find.text('Shape com pestana'), findsOneWidget);
     expect(find.byKey(const ValueKey('guitar-fretboard')), findsOneWidget);
     await tester.tap(find.byTooltip('Fechar'));
     await tester.pumpAndSettle();
