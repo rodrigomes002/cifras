@@ -21,8 +21,10 @@ pré-refrão, refrão, ponte, solo e final, e distribua os acordes por compassos
    da música) e o tipo da seção. Distribua os acordes pelos compassos; compassos
    extras podem ser removidos antes de salvar. Exemplo de acordes separados por
    compasso: `Am G/B | C | F Dm | E7`.
-4. As cifras ficam salvas localmente em SQLite no dispositivo.
-5. No Android, toque em **Sincronizar com Google Drive** para enviar ou
+4. Na tela da cifra, escolha **Violão** ou **Teclado** e toque em um acorde para
+   ver suas notas no instrumento.
+5. As cifras ficam salvas localmente em SQLite no dispositivo.
+6. No Android, toque em **Sincronizar com Google Drive** para enviar ou
    restaurar o banco. Na primeira sincronização e quando os dois lados tiverem
    alterações, escolha qual versão manter; a outra versão será substituída.
 
