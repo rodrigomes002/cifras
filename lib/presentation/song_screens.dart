@@ -49,6 +49,11 @@ const _chordQualities = {
   'Diminuto': 'dim',
 };
 
+List<String> get _chordDictionary => [
+  for (final root in _chordRoots)
+    for (final quality in _chordQualities.values) '$root$quality',
+];
+
 enum _ChordInstrument { guitar, keyboard }
 
 enum _LibraryBackupAction { export, import }
@@ -537,6 +542,16 @@ class _SongLibraryScreenState extends State<SongLibraryScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Dicionário de acordes',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => const _ChordDictionaryScreen(),
+              ),
+            ),
+            icon: const Icon(Icons.library_music_outlined),
+          ),
           PopupMenuButton<_LibraryBackupAction>(
             key: const ValueKey('backup-actions'),
             tooltip: 'Importar ou exportar JSON',
@@ -707,6 +722,99 @@ class _SongLibraryScreenState extends State<SongLibraryScreen> {
         onPressed: _isManagingBackup ? null : _createSong,
         icon: const Icon(Icons.add),
         label: const Text('Nova cifra'),
+      ),
+    );
+  }
+}
+
+class _ChordDictionaryScreen extends StatefulWidget {
+  const _ChordDictionaryScreen();
+
+  @override
+  State<_ChordDictionaryScreen> createState() => _ChordDictionaryScreenState();
+}
+
+class _ChordDictionaryScreenState extends State<_ChordDictionaryScreen> {
+  String _search = '';
+  _ChordInstrument _instrument = _ChordInstrument.guitar;
+
+  @override
+  Widget build(BuildContext context) {
+    final query = _search.trim().toLowerCase();
+    final chords = _chordDictionary
+        .where((chord) => chord.toLowerCase().contains(query))
+        .toList(growable: false);
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Dicionário de acordes')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(22, 16, 22, 32),
+        children: [
+          TextField(
+            key: const ValueKey('chord-dictionary-search'),
+            onChanged: (value) => setState(() => _search = value),
+            decoration: const InputDecoration(
+              labelText: 'Buscar acorde',
+              hintText: 'Ex.: Am, C7 ou F#',
+              prefixIcon: Icon(Icons.search),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Instrumento',
+            style: Theme.of(context).textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          SegmentedButton<_ChordInstrument>(
+            segments: const [
+              ButtonSegment(
+                value: _ChordInstrument.guitar,
+                label: Text('Violão'),
+                icon: Icon(Icons.music_note),
+              ),
+              ButtonSegment(
+                value: _ChordInstrument.keyboard,
+                label: Text('Teclado'),
+                icon: Icon(Icons.piano),
+              ),
+            ],
+            selected: {_instrument},
+            onSelectionChanged: (selection) {
+              setState(() => _instrument = selection.first);
+            },
+          ),
+          const SizedBox(height: 14),
+          if (chords.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: Text('Nenhum acorde encontrado.')),
+            )
+          else
+            ...chords.map(
+              (chord) => ListTile(
+                key: ValueKey('dictionary-chord-$chord'),
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  chord,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text(
+                  _instrument == _ChordInstrument.guitar &&
+                          _guitarChordShape(chord) == null
+                      ? 'Diagrama de violão indisponível'
+                      : 'Toque para ver o diagrama',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => showModalBottomSheet<void>(
+                  context: context,
+                  showDragHandle: true,
+                  builder: (_) =>
+                      _ChordDiagramSheet(chord: chord, instrument: _instrument),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -2026,15 +2134,16 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
   final List<List<String>> _measures = [[]];
   String _sectionName = _sectionNames.first;
   late String _timeSignature = widget.initialTimeSignature;
-  String _chordRoot = _chordRoots.first;
-  String _chordQuality = _chordQualities.keys.first;
+  String _chordSearch = '';
   String? _validationError;
 
   bool get _hasChords => _measures.any((measure) => measure.isNotEmpty);
 
-  void _addChord() {
+  void _addChord([String? chord]) {
+    final selectedChord = chord;
+    if (selectedChord == null) return;
     setState(() {
-      _measures.last.add('$_chordRoot${_chordQualities[_chordQuality]}');
+      _measures.last.add(selectedChord);
       _validationError = null;
     });
   }
@@ -2109,56 +2218,45 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
               },
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _chordRoot,
-                    decoration: const InputDecoration(labelText: 'Nota'),
-                    items: _chordRoots
-                        .map(
-                          (root) =>
-                              DropdownMenuItem(value: root, child: Text(root)),
-                        )
-                        .toList(growable: false),
-                    onChanged: (value) {
-                      if (value != null) setState(() => _chordRoot = value);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  flex: 2,
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _chordQuality,
-                    decoration: const InputDecoration(labelText: 'Acorde'),
-                    items: _chordQualities.keys
-                        .map(
-                          (quality) => DropdownMenuItem(
-                            value: quality,
-                            child: Text(quality),
-                          ),
-                        )
-                        .toList(growable: false),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() => _chordQuality = value);
-                      }
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _addChord,
-                icon: const Icon(Icons.add),
-                label: const Text('Adicionar acorde ao compasso'),
+            TextField(
+              key: const ValueKey('section-chord-dictionary-search'),
+              onChanged: (value) => setState(() => _chordSearch = value),
+              decoration: const InputDecoration(
+                labelText: 'Buscar acorde no dicionário',
+                hintText: 'Ex.: Am, C7 ou F#',
+                prefixIcon: Icon(Icons.search),
               ),
             ),
-            const SizedBox(height: 8),
+            if (_chordSearch.trim().isNotEmpty) ...[
+              const SizedBox(height: 4),
+              for (final chord in _chordDictionary.where(
+                (chord) => chord.toLowerCase().contains(
+                  _chordSearch.trim().toLowerCase(),
+                ),
+              ))
+                ListTile(
+                  key: ValueKey('section-dictionary-chord-$chord'),
+                  dense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                  title: Text(chord),
+                  trailing: const Icon(Icons.add_circle_outline),
+                  onTap: () {
+                    _addChord(chord);
+                    setState(() => _chordSearch = '');
+                  },
+                ),
+              if (!_chordDictionary.any(
+                (chord) => chord.toLowerCase().contains(
+                  _chordSearch.trim().toLowerCase(),
+                ),
+              ))
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(8, 8, 8, 0),
+                  child: Text('Nenhum acorde encontrado.'),
+                ),
+            ],
+            const SizedBox(height: 12),
+            const SizedBox(height: 4),
             for (var index = 0; index < _measures.length; index++) ...[
               Container(
                 width: double.infinity,

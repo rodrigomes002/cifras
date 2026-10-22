@@ -138,37 +138,34 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('5/4').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(DropdownButtonFormField<String>).at(2));
+    expect(find.text('Nota'), findsNothing);
+    expect(find.text('Acorde'), findsNothing);
+    await tester.enterText(
+      find.byKey(const ValueKey('section-chord-dictionary-search')),
+      'Am',
+    );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('A').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byType(DropdownButtonFormField<String>).at(3));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Menor').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Adicionar acorde ao compasso'));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Novo compasso'));
-    await tester.tap(find.text('Novo compasso'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byType(DropdownButtonFormField<String>).at(2));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('C').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byType(DropdownButtonFormField<String>).at(3));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Maior').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Adicionar acorde ao compasso'));
+    await tester.tap(find.byKey(const ValueKey('section-dictionary-chord-Am')));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Novo compasso'));
     await tester.tap(find.text('Novo compasso'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(DropdownButtonFormField<String>).at(2));
+    await tester.enterText(
+      find.byKey(const ValueKey('section-chord-dictionary-search')),
+      'C',
+    );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('D').last);
+    await tester.tap(find.byKey(const ValueKey('section-dictionary-chord-C')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Adicionar acorde ao compasso'));
+    await tester.ensureVisible(find.text('Novo compasso'));
+    await tester.tap(find.text('Novo compasso'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('section-chord-dictionary-search')),
+      'D',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('section-dictionary-chord-D')));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Remover compasso').last);
     await tester.pumpAndSettle();
@@ -189,8 +186,71 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('song-key-next')));
     await tester.pumpAndSettle();
 
-    expect(find.text('A#m'), findsNWidgets(2));
+    expect(find.text('A#m'), findsOneWidget);
+    expect(find.text('Bbm'), findsOneWidget);
     expect(find.text('C#'), findsOneWidget);
+  });
+
+  testWidgets('busca acordes no dicionário e exibe diagramas por instrumento', (
+    tester,
+  ) async {
+    await tester.pumpWidget(CifrasApp(repository: _MemorySongRepository()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Dicionário de acordes'));
+    await tester.pumpAndSettle();
+    expect(find.text('Dicionário de acordes'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('chord-dictionary-search')),
+      'Am',
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('dictionary-chord-Am')), findsOneWidget);
+    await tester.tap(find.text('Teclado'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('dictionary-chord-Am')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('keyboard-chord-diagram')),
+      findsOneWidget,
+    );
+    expect(find.text('Notas: A · C · E'), findsOneWidget);
+  });
+
+  testWidgets('adiciona um acorde encontrado no dicionário à seção', (
+    tester,
+  ) async {
+    final repository = _MemorySongRepository();
+    await repository.addSong(
+      const NewSong(title: 'Canção teste', artist: '', key: 'Am', tempo: null),
+    );
+    await tester.pumpWidget(CifrasApp(repository: repository));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Canção teste'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Adicionar seção'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('section-chord-dictionary-search')),
+      'F#',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('section-dictionary-chord-F#')));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: find.byType(InputChip), matching: find.text('F#')),
+      findsOneWidget,
+    );
+
+    await tester.ensureVisible(find.text('Salvar seção'));
+    await tester.tap(find.text('Salvar seção'));
+    await tester.pumpAndSettle();
+
+    final songs = await repository.getSongs();
+    expect(songs.single.sections.single.measures, ['F#']);
   });
 
   testWidgets('mantém os cards de tom e andamento com a mesma altura', (
