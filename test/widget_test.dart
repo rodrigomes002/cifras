@@ -297,30 +297,42 @@ void main() {
     await tester.tap(find.byTooltip('Ver acorde de Am'));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('guitar-chord-diagram')), findsOneWidget);
-    expect(find.byKey(const ValueKey('guitar-fretboard')), findsOneWidget);
-    expect(find.text('Shape aberto'), findsOneWidget);
-    expect(find.textContaining('números: dedos'), findsOneWidget);
+    expect(find.byKey(const ValueKey('guitar-fretboard-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('guitar-fretboard-0')), findsOneWidget);
+    expect(find.textContaining('Tônica A marcada na 5ª corda'), findsOneWidget);
+    expect(find.textContaining('Tônica A marcada na 6ª corda'), findsOneWidget);
+    expect(find.textContaining('5ª corda · casa solta'), findsOneWidget);
+    expect(find.textContaining('6ª corda · casa 5'), findsOneWidget);
+    expect(find.textContaining('números: dedos'), findsNWidgets(2));
     await tester.tap(find.byTooltip('Fechar'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('Ver acorde de G'));
     await tester.pumpAndSettle();
-    expect(find.text('Shape aberto'), findsOneWidget);
-    expect(find.byKey(const ValueKey('guitar-fretboard')), findsOneWidget);
+    expect(find.byKey(const ValueKey('guitar-fretboard-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('guitar-fretboard-0')), findsOneWidget);
     await tester.tap(find.byTooltip('Fechar'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('Ver acorde de C'));
     await tester.pumpAndSettle();
-    expect(find.text('Shape aberto'), findsOneWidget);
-    expect(find.byKey(const ValueKey('guitar-fretboard')), findsOneWidget);
+    expect(find.byKey(const ValueKey('guitar-fretboard-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('guitar-fretboard-0')), findsOneWidget);
+    expect(
+      find.textContaining('Tônica C marcada na 5ª corda · casa 3'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Tônica C marcada na 6ª corda · casa 8'),
+      findsOneWidget,
+    );
     await tester.tap(find.byTooltip('Fechar'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('Ver acorde de F#'));
     await tester.pumpAndSettle();
-    expect(find.text('Shape com pestana'), findsOneWidget);
-    expect(find.byKey(const ValueKey('guitar-fretboard')), findsOneWidget);
+    expect(find.byKey(const ValueKey('guitar-fretboard-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('guitar-fretboard-0')), findsOneWidget);
     await tester.tap(find.byTooltip('Fechar'));
     await tester.pumpAndSettle();
 
