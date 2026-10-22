@@ -17,7 +17,7 @@ class SqliteSongRepository implements SongRepository {
     final databasePath = path.join(await getDatabasesPath(), 'cifras.db');
     final openedDatabase = await openDatabase(
       databasePath,
-      version: 4,
+      version: 5,
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: (db, version) async {
         await db.execute('''
@@ -40,6 +40,18 @@ class SqliteSongRepository implements SongRepository {
             position INTEGER NOT NULL,
             time_signature TEXT NOT NULL DEFAULT '4/4',
             FOREIGN KEY (song_id) REFERENCES songs (id) ON DELETE CASCADE
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE chord_shapes (
+            chord TEXT NOT NULL,
+            position INTEGER NOT NULL,
+            frets TEXT NOT NULL,
+            fingers TEXT NOT NULL,
+            base_fret INTEGER NOT NULL,
+            barre_start INTEGER,
+            barre_end INTEGER,
+            PRIMARY KEY (chord, position)
           )
         ''');
       },
@@ -67,6 +79,20 @@ class SqliteSongRepository implements SongRepository {
           await db.execute(
             'ALTER TABLE songs ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0',
           );
+        }
+        if (oldVersion < 5) {
+          await db.execute('''
+            CREATE TABLE chord_shapes (
+              chord TEXT NOT NULL,
+              position INTEGER NOT NULL,
+              frets TEXT NOT NULL,
+              fingers TEXT NOT NULL,
+              base_fret INTEGER NOT NULL,
+              barre_start INTEGER,
+              barre_end INTEGER,
+              PRIMARY KEY (chord, position)
+            )
+          ''');
         }
       },
     );
@@ -251,5 +277,53 @@ class SqliteSongRepository implements SongRepository {
   Future<void> deleteSection(int sectionId) async {
     final db = await _db;
     await db.delete('sections', where: 'id = ?', whereArgs: [sectionId]);
+  }
+
+  @override
+  Future<List<GuitarChordShape>> getChordShapes(String chord) async {
+    final db = await _db;
+    final rows = await db.query(
+      'chord_shapes',
+      where: 'chord = ?',
+      whereArgs: [chord],
+      orderBy: 'position ASC',
+    );
+    return [
+      for (final row in rows)
+        GuitarChordShape(
+          frets: (jsonDecode(row['frets']! as String) as List).cast<int>(),
+          fingers: (jsonDecode(row['fingers']! as String) as List).cast<int>(),
+          baseFret: row['base_fret']! as int,
+          barreStart: row['barre_start'] as int?,
+          barreEnd: row['barre_end'] as int?,
+        ),
+    ];
+  }
+
+  @override
+  Future<void> saveChordShapes(
+    String chord,
+    List<GuitarChordShape> shapes,
+  ) async {
+    final db = await _db;
+    await db.transaction((transaction) async {
+      await transaction.delete(
+        'chord_shapes',
+        where: 'chord = ?',
+        whereArgs: [chord],
+      );
+      for (var position = 0; position < shapes.length; position++) {
+        final shape = shapes[position];
+        await transaction.insert('chord_shapes', {
+          'chord': chord,
+          'position': position,
+          'frets': jsonEncode(shape.frets),
+          'fingers': jsonEncode(shape.fingers),
+          'base_fret': shape.baseFret,
+          'barre_start': shape.barreStart,
+          'barre_end': shape.barreEnd,
+        });
+      }
+    });
   }
 }

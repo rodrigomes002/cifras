@@ -64,4 +64,10 @@ class SongLibraryViewModel extends ChangeNotifier {
     await _repository.deleteSection(sectionId);
     await load();
   }
+
+  Future<List<GuitarChordShape>> getChordShapes(String chord) =>
+      _repository.getChordShapes(chord);
+
+  Future<void> saveChordShapes(String chord, List<GuitarChordShape> shapes) =>
+      _repository.saveChordShapes(chord, shapes);
 }

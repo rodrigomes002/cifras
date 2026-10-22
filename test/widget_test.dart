@@ -216,7 +216,7 @@ void main() {
       find.byKey(const ValueKey('keyboard-chord-diagram')),
       findsOneWidget,
     );
-    expect(find.text('Notas: A · C · E'), findsOneWidget);
+    expect(find.text('Notas: A · C · E'), findsNothing);
   });
 
   testWidgets('exibe acordes diminutos no teclado e no violão', (tester) async {
@@ -235,7 +235,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('dictionary-chord-Cdim')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('guitar-chord-diagram')), findsOneWidget);
-    expect(find.byKey(const ValueKey('guitar-fretboard-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('guitar-fretboard-0')), findsOneWidget);
     await tester.tap(find.byTooltip('Fechar'));
     await tester.pumpAndSettle();
 
@@ -248,7 +248,7 @@ void main() {
       find.byKey(const ValueKey('keyboard-chord-diagram')),
       findsOneWidget,
     );
-    expect(find.text('Notas: C · Eb · F#'), findsOneWidget);
+    expect(find.text('Notas: C · Eb · F#'), findsNothing);
   });
 
   testWidgets('adiciona um acorde encontrado no dicionário à seção', (
@@ -329,42 +329,59 @@ void main() {
     await tester.tap(find.byTooltip('Ver acorde de Am'));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('guitar-chord-diagram')), findsOneWidget);
-    expect(find.byKey(const ValueKey('guitar-fretboard-1')), findsOneWidget);
-    expect(find.byKey(const ValueKey('guitar-fretboard-0')), findsOneWidget);
-    expect(find.textContaining('Tônica A marcada na 5ª corda'), findsOneWidget);
-    expect(find.textContaining('Tônica A marcada na 6ª corda'), findsOneWidget);
-    expect(find.textContaining('5ª corda · casa solta'), findsOneWidget);
-    expect(find.textContaining('6ª corda · casa 5'), findsOneWidget);
-    expect(find.textContaining('números: dedos'), findsNWidgets(2));
+    expect(find.byKey(const ValueKey('guitar-shape-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('guitar-shape-1')), findsNothing);
     await tester.tap(find.byTooltip('Fechar'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('Ver acorde de G'));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('guitar-fretboard-1')), findsOneWidget);
     expect(find.byKey(const ValueKey('guitar-fretboard-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('guitar-shape-1')), findsNothing);
     await tester.tap(find.byTooltip('Fechar'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('Ver acorde de C'));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('guitar-fretboard-1')), findsOneWidget);
     expect(find.byKey(const ValueKey('guitar-fretboard-0')), findsOneWidget);
-    expect(
-      find.textContaining('Tônica C marcada na 5ª corda · casa 3'),
-      findsOneWidget,
+    final fretboard = find.byKey(const ValueKey('guitar-fretboard-0'));
+    final fretRange = find.byKey(const ValueKey('guitar-fret-range-0'));
+    final previousFret = find.byKey(const ValueKey('guitar-fret-previous-0'));
+    final nextFret = find.byKey(const ValueKey('guitar-fret-next-0'));
+    expect(fretRange, findsOneWidget);
+    expect(find.text('Casas 1–5'), findsOneWidget);
+    await tester.tap(nextFret);
+    await tester.pumpAndSettle();
+    expect(find.text('Casas 2–6'), findsOneWidget);
+    await tester.tap(previousFret);
+    await tester.pumpAndSettle();
+    expect(find.text('Casas 1–5'), findsOneWidget);
+    await tester.tap(nextFret);
+    await tester.pumpAndSettle();
+
+    final fretboardTopLeft = tester.getTopLeft(fretboard);
+    final fretboardSize = tester.getSize(fretboard);
+    await tester.tapAt(
+      fretboardTopLeft + Offset(39 + (fretboardSize.width - 43) / 10, 30),
     );
-    expect(
-      find.textContaining('Tônica C marcada na 6ª corda · casa 8'),
-      findsOneWidget,
-    );
+    await tester.pumpAndSettle();
+    expect(find.text('Casas 2–6'), findsOneWidget);
+    expect(find.text('Toque em uma casa para selecionar a nota'), findsNothing);
+
+    for (var fret = 2; fret < 20; fret++) {
+      await tester.tap(nextFret);
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('Casas 20–24'), findsOneWidget);
+    await tester.tap(nextFret);
+    await tester.pumpAndSettle();
+    expect(find.text('Casas 20–24'), findsOneWidget);
     await tester.tap(find.byTooltip('Fechar'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('Ver acorde de F#'));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('guitar-fretboard-1')), findsOneWidget);
-    expect(find.byKey(const ValueKey('guitar-fretboard-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('guitar-shape-0')), findsOneWidget);
     await tester.tap(find.byTooltip('Fechar'));
     await tester.pumpAndSettle();
 
@@ -376,7 +393,54 @@ void main() {
       find.byKey(const ValueKey('keyboard-chord-diagram')),
       findsOneWidget,
     );
-    expect(find.text('Notas: A · C · E'), findsOneWidget);
+    expect(find.text('Notas destacadas em duas oitavas'), findsNothing);
+  });
+
+  testWidgets('salva e reabre shapes editados pelo toque', (tester) async {
+    final repository = _MemorySongRepository();
+    await tester.pumpWidget(CifrasApp(repository: repository));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Dicionário de acordes'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('chord-dictionary-search')),
+      'Am',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('dictionary-chord-Am')));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byKey(const ValueKey('add-guitar-shape')));
+    await tester.tap(find.byKey(const ValueKey('add-guitar-shape')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('guitar-shape-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('guitar-shape-1')), findsOneWidget);
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('guitar-fretboard-0')),
+    );
+    final fretboard = find.byKey(const ValueKey('guitar-fretboard-0'));
+    final fretboardTopLeft = tester.getTopLeft(fretboard);
+    final fretboardSize = tester.getSize(fretboard);
+    await tester.tapAt(
+      fretboardTopLeft + Offset(39 + (fretboardSize.width - 43) / 10, 30),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('save-guitar-shapes')),
+    );
+    await tester.tap(find.byKey(const ValueKey('save-guitar-shapes')));
+    await tester.pumpAndSettle();
+    final savedShapes = await repository.getChordShapes('Am');
+    expect(savedShapes, hasLength(2));
+    expect(savedShapes.first.frets.first, isNot(-1));
+    await tester.ensureVisible(find.byTooltip('Fechar'));
+    await tester.tap(find.byTooltip('Fechar'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('dictionary-chord-Am')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('guitar-shape-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('guitar-shape-1')), findsOneWidget);
   });
 
   testWidgets('aplica a identidade visual e exibe a marca', (tester) async {
@@ -445,6 +509,7 @@ void main() {
 
 class _MemorySongRepository implements SongRepository {
   final List<Song> _songs = [];
+  final Map<String, List<GuitarChordShape>> _chordShapes = {};
   var _nextSongId = 1;
   var _nextSectionId = 1;
 
@@ -590,5 +655,17 @@ class _MemorySongRepository implements SongRepository {
         sections: sections,
       );
     }
+  }
+
+  @override
+  Future<List<GuitarChordShape>> getChordShapes(String chord) async =>
+      List.unmodifiable(_chordShapes[chord] ?? const []);
+
+  @override
+  Future<void> saveChordShapes(
+    String chord,
+    List<GuitarChordShape> shapes,
+  ) async {
+    _chordShapes[chord] = List.of(shapes);
   }
 }

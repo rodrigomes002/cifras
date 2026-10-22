@@ -44,6 +44,22 @@ class SongSection {
       .toList(growable: false);
 }
 
+class GuitarChordShape {
+  const GuitarChordShape({
+    required this.frets,
+    required this.fingers,
+    required this.baseFret,
+    this.barreStart,
+    this.barreEnd,
+  });
+
+  final List<int> frets;
+  final List<int> fingers;
+  final int baseFret;
+  final int? barreStart;
+  final int? barreEnd;
+}
+
 class NewSong {
   const NewSong({
     required this.title,
