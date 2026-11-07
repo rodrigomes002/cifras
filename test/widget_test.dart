@@ -175,12 +175,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Nota'), findsNothing);
     expect(find.text('Acorde'), findsNothing);
+    expect(find.text('Nenhum acorde selecionado'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('measure-add-chord-0')));
+    await tester.pumpAndSettle();
     await tester.enterText(
-      find.byKey(const ValueKey('section-chord-dictionary-search')),
+      find.byKey(const ValueKey('measure-chord-search-0')),
       'Am',
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('section-dictionary-chord-Am')));
+    await tester.tap(
+      find.byKey(const ValueKey('measure-dictionary-chord-0-Am')),
+    );
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Novo compasso'));
     await tester.tap(find.text('Novo compasso'));
@@ -193,12 +198,16 @@ void main() {
           .initialValue,
       1,
     );
+    await tester.tap(find.byKey(const ValueKey('measure-add-chord-1')));
+    await tester.pumpAndSettle();
     await tester.enterText(
-      find.byKey(const ValueKey('section-chord-dictionary-search')),
+      find.byKey(const ValueKey('measure-chord-search-1')),
       'C',
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('section-dictionary-chord-C')));
+    await tester.tap(
+      find.byKey(const ValueKey('measure-dictionary-chord-1-C')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('measure-repetitions-1')));
     await tester.pumpAndSettle();
@@ -207,12 +216,16 @@ void main() {
     await tester.ensureVisible(find.text('Novo compasso'));
     await tester.tap(find.text('Novo compasso'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('measure-add-chord-0')));
+    await tester.pumpAndSettle();
     await tester.enterText(
-      find.byKey(const ValueKey('section-chord-dictionary-search')),
+      find.byKey(const ValueKey('measure-chord-search-0')),
       'D',
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('section-dictionary-chord-D')));
+    await tester.tap(
+      find.byKey(const ValueKey('measure-dictionary-chord-0-D')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Remover compasso').last);
     await tester.pumpAndSettle();
@@ -227,7 +240,7 @@ void main() {
     expect(find.text('2x'), findsOneWidget);
     expect(find.text('Am'), findsNWidgets(2));
     expect(find.text('C'), findsOneWidget);
-    expect(find.text('D'), findsNothing);
+    expect(find.text('D'), findsOneWidget);
     expect(find.text('COMPASSO 2'), findsOneWidget);
     expect(find.text('3x'), findsOneWidget);
     expect(find.textContaining('letra'), findsNothing);
@@ -264,7 +277,7 @@ void main() {
     expect(find.text('Compasso: 5/4'), findsOneWidget);
     expect(repository._songs.single.sections, hasLength(1));
     expect(repository._songs.single.sections.single.id, sectionId);
-    expect(repository._songs.single.sections.single.measures, ['Am', 'C']);
+    expect(repository._songs.single.sections.single.measures, ['Am D', 'C']);
     expect(repository._songs.single.sections.single.measureRepetitions, [4, 3]);
 
     await tester.tap(find.byKey(const ValueKey('song-key-next')));
@@ -349,12 +362,16 @@ void main() {
     await tester.tap(find.text('Adicionar seção'));
     await tester.pumpAndSettle();
 
+    await tester.tap(find.byKey(const ValueKey('measure-add-chord-0')));
+    await tester.pumpAndSettle();
     await tester.enterText(
-      find.byKey(const ValueKey('section-chord-dictionary-search')),
+      find.byKey(const ValueKey('measure-chord-search-0')),
       'F#',
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('section-dictionary-chord-F#')));
+    await tester.tap(
+      find.byKey(const ValueKey('measure-dictionary-chord-0-F#')),
+    );
     await tester.pumpAndSettle();
     expect(
       find.descendant(of: find.byType(InputChip), matching: find.text('F#')),
@@ -503,17 +520,19 @@ void main() {
       find.byKey(const ValueKey('guitar-fretboard-0')),
     );
     final fretboard = find.byKey(const ValueKey('guitar-fretboard-0'));
-    final fretboardTopLeft = tester.getTopLeft(fretboard);
-    final fretboardSize = tester.getSize(fretboard);
-    await tester.tapAt(
-      fretboardTopLeft + Offset(39 + (fretboardSize.width - 43) / 10, 30),
-    );
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(
-      find.byKey(const ValueKey('save-guitar-shapes')),
-    );
-    await tester.tap(find.byKey(const ValueKey('save-guitar-shapes')));
-    await tester.pumpAndSettle();
+    final saveShapes = find.byKey(const ValueKey('save-guitar-shapes'));
+    for (final finger in [1, 2, 3, 4, 1]) {
+      await tester.ensureVisible(fretboard);
+      final topLeft = tester.getTopLeft(fretboard);
+      final size = tester.getSize(fretboard);
+      await tester.tapAt(topLeft + Offset(39 + (size.width - 43) / 10, 30));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(saveShapes);
+      await tester.tap(saveShapes);
+      await tester.pumpAndSettle();
+      final shapes = await repository.getChordShapes('Am');
+      expect(shapes.first.fingers.first, finger);
+    }
     final savedShapes = await repository.getChordShapes('Am');
     expect(savedShapes, hasLength(2));
     expect(savedShapes.first.frets.first, isNot(-1));

@@ -1955,11 +1955,17 @@ class _GuitarChordPositionState extends State<_GuitarChordPosition> {
 
     final frets = List<int>.of(_shape.frets);
     frets[stringIndex] = _visibleFirstFret + fretOffset;
-    _updateShape(frets, stringIndex);
+    final currentFinger = _shape.frets[stringIndex] == frets[stringIndex]
+        ? _shape.fingers[stringIndex]
+        : 0;
+    final finger = currentFinger >= 1 && currentFinger < 4
+        ? currentFinger + 1
+        : 1;
+    _updateShape(frets, stringIndex, finger: finger);
   }
 
-  void _updateShape(List<int> frets, int changedString) {
-    final fingers = List<int>.of(_shape.fingers)..[changedString] = 0;
+  void _updateShape(List<int> frets, int changedString, {int? finger}) {
+    final fingers = List<int>.of(_shape.fingers)..[changedString] = finger ?? 0;
     final positiveFrets = frets.where((fret) => fret > 0);
     final baseFret = positiveFrets.isEmpty
         ? 0
@@ -2580,7 +2586,6 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
   late final List<String> _availableSectionNames;
   late final Set<String> _selectedSectionNames;
   late String _timeSignature = widget.initialTimeSignature;
-  String _chordSearch = '';
   String? _validationError;
   String? _sectionNameError;
 
@@ -2618,11 +2623,68 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
     ];
   }
 
-  void _addChord([String? chord]) {
-    final selectedChord = chord;
-    if (selectedChord == null) return;
+  Future<void> _addChord(int measureIndex) async {
+    var chordSearch = '';
+    final chord = await showDialog<String>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final matches = _chordDictionary
+              .where(
+                (chord) => chord.toLowerCase().contains(
+                  chordSearch.trim().toLowerCase(),
+                ),
+              )
+              .toList(growable: false);
+          return AlertDialog(
+            title: Text('Adicionar acorde ao compasso ${measureIndex + 1}'),
+            content: SizedBox(
+              width: 380,
+              height: 320,
+              child: Column(
+                children: [
+                  TextField(
+                    key: ValueKey('measure-chord-search-$measureIndex'),
+                    autofocus: true,
+                    onChanged: (value) =>
+                        setDialogState(() => chordSearch = value),
+                    decoration: const InputDecoration(
+                      labelText: 'Buscar acorde',
+                      hintText: 'Ex.: Am, C7 ou F#',
+                      prefixIcon: Icon(Icons.search),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: matches.isEmpty
+                        ? const Center(child: Text('Nenhum acorde encontrado.'))
+                        : ListView(
+                            children: [
+                              for (final chord in matches)
+                                ListTile(
+                                  key: ValueKey(
+                                    'measure-dictionary-chord-$measureIndex-$chord',
+                                  ),
+                                  dense: true,
+                                  title: Text(chord),
+                                  trailing: const Icon(
+                                    Icons.add_circle_outline,
+                                  ),
+                                  onTap: () => Navigator.pop(context, chord),
+                                ),
+                            ],
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    if (chord == null || !mounted) return;
     setState(() {
-      _measures.last.add(selectedChord);
+      _measures[measureIndex].add(chord);
       _validationError = null;
     });
   }
@@ -2739,43 +2801,6 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
               },
             ),
             const SizedBox(height: 12),
-            TextField(
-              key: const ValueKey('section-chord-dictionary-search'),
-              onChanged: (value) => setState(() => _chordSearch = value),
-              decoration: const InputDecoration(
-                labelText: 'Buscar acorde no dicionário',
-                hintText: 'Ex.: Am, C7 ou F#',
-                prefixIcon: Icon(Icons.search),
-              ),
-            ),
-            if (_chordSearch.trim().isNotEmpty) ...[
-              const SizedBox(height: 4),
-              for (final chord in _chordDictionary.where(
-                (chord) => chord.toLowerCase().contains(
-                  _chordSearch.trim().toLowerCase(),
-                ),
-              ))
-                ListTile(
-                  key: ValueKey('section-dictionary-chord-$chord'),
-                  dense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                  title: Text(chord),
-                  trailing: const Icon(Icons.add_circle_outline),
-                  onTap: () {
-                    _addChord(chord);
-                    setState(() => _chordSearch = '');
-                  },
-                ),
-              if (!_chordDictionary.any(
-                (chord) => chord.toLowerCase().contains(
-                  _chordSearch.trim().toLowerCase(),
-                ),
-              ))
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(8, 8, 8, 0),
-                  child: Text('Nenhum acorde encontrado.'),
-                ),
-            ],
             const SizedBox(height: 12),
             const SizedBox(height: 4),
             for (var index = 0; index < _measures.length; index++) ...[
@@ -2845,12 +2870,7 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
                           ),
                       ],
                     ),
-                    if (_measures[index].isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 8),
-                        child: Text('Nenhum acorde selecionado'),
-                      )
-                    else
+                    if (_measures[index].isNotEmpty)
                       Wrap(
                         spacing: 8,
                         children: [
@@ -2863,6 +2883,15 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
                             ),
                         ],
                       ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        key: ValueKey('measure-add-chord-$index'),
+                        onPressed: () => _addChord(index),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Adicionar acorde'),
+                      ),
+                    ),
                   ],
                 ),
               ),
