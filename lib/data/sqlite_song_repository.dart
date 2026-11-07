@@ -18,7 +18,7 @@ class SqliteSongRepository implements SongRepository {
     final databasePath = path.join(await getDatabasesPath(), 'cifras.db');
     final openedDatabase = await openDatabase(
       databasePath,
-      version: 7,
+      version: 8,
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: (db, version) async {
         await db.execute('''
@@ -39,6 +39,7 @@ class SqliteSongRepository implements SongRepository {
             title TEXT NOT NULL,
             measures TEXT NOT NULL,
             measure_repetitions TEXT NOT NULL DEFAULT '[]',
+            repetitions INTEGER NOT NULL DEFAULT 1,
             position INTEGER NOT NULL,
             time_signature TEXT NOT NULL DEFAULT '4/4',
             FOREIGN KEY (song_id) REFERENCES songs (id) ON DELETE CASCADE
@@ -113,6 +114,11 @@ class SqliteSongRepository implements SongRepository {
             )
           ''');
         }
+        if (oldVersion < 8) {
+          await db.execute(
+            'ALTER TABLE sections ADD COLUMN repetitions INTEGER NOT NULL DEFAULT 1',
+          );
+        }
       },
     );
     _database = openedDatabase;
@@ -140,6 +146,7 @@ class SqliteSongRepository implements SongRepository {
                   measureRepetitions: (jsonDecode(
                     section['measure_repetitions']! as String,
                   ) as List).cast<int>(),
+                  repetitions: section['repetitions']! as int,
                   position: section['position']! as int,
                   timeSignature: section['time_signature']! as String,
                 ),
@@ -221,6 +228,7 @@ class SqliteSongRepository implements SongRepository {
             for (var index = 0; index < section.measures.length; index++)
               section.repetitionsForMeasure(index),
           ]),
+          'repetitions': section.repetitions,
           'position': section.position,
           'time_signature': section.timeSignature,
         });
@@ -333,6 +341,7 @@ class SqliteSongRepository implements SongRepository {
         for (var index = 0; index < section.measures.length; index++)
           section.repetitionsForMeasure(index),
       ]),
+      'repetitions': section.repetitions,
       'position': position,
       'time_signature': section.timeSignature,
     });
@@ -350,6 +359,7 @@ class SqliteSongRepository implements SongRepository {
           for (var index = 0; index < section.measures.length; index++)
             section.repetitionsForMeasure(index),
         ]),
+        'repetitions': section.repetitions,
         'time_signature': section.timeSignature,
       },
       where: 'id = ?',

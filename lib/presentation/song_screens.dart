@@ -1572,10 +1572,29 @@ class _SectionCard extends StatelessWidget {
                       style: Theme.of(context).textTheme.titleMedium
                           ?.copyWith(fontWeight: FontWeight.w800),
                     ),
-                    Text(
-                      'Compasso: ${section.timeSignature}',
-                      style: Theme.of(context).textTheme.bodySmall
-                          ?.copyWith(color: AppColors.muted),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          section.timeSignature,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: AppColors.muted),
+                        ),
+                        if (section.repetitions > 1) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            '${section.repetitions}x',
+                            key: ValueKey(
+                              'section-repetition-label-${section.id}',
+                            ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: AppColors.forest,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
@@ -2686,6 +2705,7 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
   final _formKey = GlobalKey<FormState>();
   late final List<List<String>> _measures;
   late final List<int> _measureRepetitions;
+  late int _sectionRepetitions;
   late final List<String> _availableSectionNames;
   late final Set<String> _selectedSectionNames;
   List<String> _customChords = const [];
@@ -2701,6 +2721,7 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
     super.initState();
     _loadCustomChords();
     final initialSection = widget.initialSection;
+    _sectionRepetitions = initialSection?.repetitions ?? 1;
     final initialNames =
         initialSection?.title
             .split('/')
@@ -2886,6 +2907,7 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
       NewSection(
         title: _selectedSectionNames.join(' / '),
         timeSignature: _timeSignature,
+        repetitions: _sectionRepetitions,
         measures: _measures
             .asMap()
             .entries
@@ -2966,6 +2988,32 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
                   .toList(growable: false),
               onChanged: (value) {
                 if (value != null) setState(() => _timeSignature = value);
+              },
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<int>(
+              key: const ValueKey('section-repetitions'),
+              initialValue: _sectionRepetitions,
+              decoration: const InputDecoration(
+                labelText: 'Repetições da seção',
+              ),
+              items: [
+                for (final repetitions in [
+                  1,
+                  if (_sectionRepetitions > 4) _sectionRepetitions,
+                  2,
+                  3,
+                  4,
+                ].toSet())
+                  DropdownMenuItem(
+                    value: repetitions,
+                    child: Text('${repetitions}x'),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _sectionRepetitions = value);
+                }
               },
             ),
             const SizedBox(height: 12),

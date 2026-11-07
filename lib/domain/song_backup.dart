@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'song.dart';
 
 const _backupFormat = 'cifras';
-const _backupVersion = 2;
+const _backupVersion = 3;
 
 class SongBackup {
   const SongBackup({required this.songs, this.customChords, this.chordShapes});
@@ -37,6 +37,7 @@ String encodeSongBackup(
             {
               'title': section.title,
               'measures': section.measures,
+              'repetitions': section.repetitions,
               'measureRepetitions': [
                 for (var index = 0; index < section.measures.length; index++)
                   section.repetitionsForMeasure(index),
@@ -71,7 +72,7 @@ SongBackup decodeSongBackup(String json) {
   if (decoded is! Map<String, dynamic> ||
       decoded['format'] != _backupFormat ||
       decoded['version'] is! int ||
-      ![1, _backupVersion].contains(decoded['version']) ||
+      ![1, 2, _backupVersion].contains(decoded['version']) ||
       decoded['songs'] is! List) {
     throw const FormatException(
       'O arquivo não é um backup JSON válido do Cifras.',
@@ -159,6 +160,9 @@ SongSection _decodeSection(Object? value, int songIndex, int sectionIndex) {
   final measureRepetitions = map.containsKey('measureRepetitions')
       ? _asList(map['measureRepetitions'], '$path.measureRepetitions')
       : List<Object?>.filled(measures.length, 1);
+  final repetitions = map.containsKey('repetitions')
+      ? _positiveInt(map['repetitions'], '$path.repetitions')
+      : 1;
   if (measureRepetitions.length != measures.length) {
     throw FormatException(
       '$path.measureRepetitions deve ter o mesmo tamanho de measures.',
@@ -178,6 +182,7 @@ SongSection _decodeSection(Object? value, int songIndex, int sectionIndex) {
           '$path.measureRepetitions[$index]',
         ),
     ],
+    repetitions: repetitions,
     position: _int(map['position'], '$path.position'),
     timeSignature: _string(map['timeSignature'], '$path.timeSignature'),
   );
