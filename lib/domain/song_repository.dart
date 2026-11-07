@@ -1,9 +1,12 @@
 import 'song.dart';
+import 'song_backup.dart';
 
 abstract interface class SongRepository {
   Future<List<Song>> getSongs();
 
   Future<void> replaceSongs(List<Song> songs);
+
+  Future<void> replaceBackup(SongBackup backup);
 
   Future<void> addSong(NewSong song);
 
@@ -22,4 +25,10 @@ abstract interface class SongRepository {
   Future<List<GuitarChordShape>> getChordShapes(String chord);
 
   Future<void> saveChordShapes(String chord, List<GuitarChordShape> shapes);
+
+  Future<Map<String, List<GuitarChordShape>>> getSavedChordShapes();
+
+  Future<List<String>> getCustomChords();
+
+  Future<void> saveCustomChord(String chord);
 }

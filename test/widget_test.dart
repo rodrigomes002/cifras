@@ -33,21 +33,50 @@ void main() {
       ),
     ];
 
-    final decoded = decodeSongBackup(encodeSongBackup(songs));
+    final decoded = decodeSongBackup(
+      encodeSongBackup(songs, customChords: [], chordShapes: {}),
+    );
 
-    expect(decoded, hasLength(1));
-    expect(decoded.single.title, 'Canção teste');
-    expect(decoded.single.artist, 'Artista');
-    expect(decoded.single.key, 'Am');
-    expect(decoded.single.tempo, 96);
-    expect(decoded.single.timeSignature, '3/4');
-    expect(decoded.single.isFavorite, isTrue);
-    expect(decoded.single.sections, hasLength(1));
-    expect(decoded.single.sections.single.title, 'Refrão');
-    expect(decoded.single.sections.single.measures, ['Am G', 'C']);
-    expect(decoded.single.sections.single.measureRepetitions, [2, 3]);
-    expect(decoded.single.sections.single.position, 2);
-    expect(decoded.single.sections.single.timeSignature, '5/4');
+    expect(decoded.songs, hasLength(1));
+    expect(decoded.songs.single.title, 'Canção teste');
+    expect(decoded.songs.single.artist, 'Artista');
+    expect(decoded.songs.single.key, 'Am');
+    expect(decoded.songs.single.tempo, 96);
+    expect(decoded.songs.single.timeSignature, '3/4');
+    expect(decoded.songs.single.isFavorite, isTrue);
+    expect(decoded.songs.single.sections, hasLength(1));
+    expect(decoded.songs.single.sections.single.title, 'Refrão');
+    expect(decoded.songs.single.sections.single.measures, ['Am G', 'C']);
+    expect(decoded.songs.single.sections.single.measureRepetitions, [2, 3]);
+    expect(decoded.songs.single.sections.single.position, 2);
+    expect(decoded.songs.single.sections.single.timeSignature, '5/4');
+  });
+
+  test('backup preserva acordes personalizados e shapes editados', () {
+    const shape = GuitarChordShape(
+      frets: [-1, 0, 2, 2, 1, 0],
+      fingers: [0, 0, 2, 3, 1, 0],
+      baseFret: 0,
+      barreStart: 1,
+      barreEnd: 5,
+    );
+    final decoded = decodeSongBackup(
+      encodeSongBackup(
+        const [],
+        customChords: ['Cadd9'],
+        chordShapes: {
+          'Am': [shape],
+        },
+      ),
+    );
+
+    expect(decoded.customChords, ['Cadd9']);
+    final decodedShape = decoded.chordShapes!['Am']!.single;
+    expect(decodedShape.frets, shape.frets);
+    expect(decodedShape.fingers, shape.fingers);
+    expect(decodedShape.baseFret, shape.baseFret);
+    expect(decodedShape.barreStart, shape.barreStart);
+    expect(decodedShape.barreEnd, shape.barreEnd);
   });
 
   test('rejeita backups JSON inválidos ou de versão não suportada', () {
@@ -75,9 +104,10 @@ void main() {
       }]}
     ''');
 
-    expect(decoded.single.sections.single.measureRepetitions, [1, 1]);
-    expect(decoded.single.sections.single.repetitionsForMeasure(0), 1);
-    expect(decoded.single.sections.single.repetitionsForMeasure(1), 1);
+    expect(decoded.songs.single.sections.single.measureRepetitions, [1, 1]);
+    expect(decoded.songs.single.sections.single.repetitionsForMeasure(0), 1);
+    expect(decoded.songs.single.sections.single.repetitionsForMeasure(1), 1);
+    expect(decoded.includesChordDictionary, isFalse);
   });
 
   test('compassos são separados e espaços excedentes são normalizados', () {
@@ -316,6 +346,29 @@ void main() {
     expect(find.text('Notas: A · C · E'), findsNothing);
   });
 
+  testWidgets('busca inversões no dicionário e identifica a nota do baixo', (
+    tester,
+  ) async {
+    await tester.pumpWidget(CifrasApp(repository: _MemorySongRepository()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Dicionário de acordes'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('chord-dictionary-search')),
+      'A/C#',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('dictionary-chord-A/C#')), findsOneWidget);
+    await tester.tap(find.text('Teclado'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('dictionary-chord-A/C#')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Baixo: C#'), findsOneWidget);
+  });
+
   testWidgets('exibe acordes diminutos no teclado e no violão', (tester) async {
     await tester.pumpWidget(CifrasApp(repository: _MemorySongRepository()));
     await tester.pumpAndSettle();
@@ -384,6 +437,54 @@ void main() {
 
     final songs = await repository.getSongs();
     expect(songs.single.sections.single.measures, ['F#']);
+  });
+
+  testWidgets('cria e salva um acorde personalizado durante a seção', (
+    tester,
+  ) async {
+    final repository = _MemorySongRepository();
+    await repository.addSong(
+      const NewSong(title: 'Canção teste', artist: '', key: 'C', tempo: null),
+    );
+    await tester.pumpWidget(CifrasApp(repository: repository));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Canção teste'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Adicionar seção'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('measure-add-chord-0')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('measure-chord-search-0')),
+      'Cadd9',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('measure-add-custom-chord-0')));
+    await tester.pumpAndSettle();
+    expect(find.text('Cadd9'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Salvar seção'));
+    await tester.tap(find.text('Salvar seção'));
+    await tester.pumpAndSettle();
+    expect(await repository.getCustomChords(), ['Cadd9']);
+    expect((await repository.getSongs()).single.sections.single.measures, [
+      'Cadd9',
+    ]);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Dicionário de acordes'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('chord-dictionary-search')),
+      'Cadd9',
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('dictionary-chord-Cadd9')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('mantém os cards de tom e andamento com a mesma altura', (
@@ -521,16 +622,31 @@ void main() {
     );
     final fretboard = find.byKey(const ValueKey('guitar-fretboard-0'));
     final saveShapes = find.byKey(const ValueKey('save-guitar-shapes'));
+
+    await tester.ensureVisible(fretboard);
+    final topLeft = tester.getTopLeft(fretboard);
+    final size = tester.getSize(fretboard);
+    await tester.tapAt(topLeft + Offset(39 + (size.width - 43) / 10, 30));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(saveShapes);
+    await tester.tap(saveShapes);
+    await tester.pumpAndSettle();
+    var shapes = await repository.getChordShapes('Am');
+    expect(shapes.first.fingers.last, 1);
+    expect(shapes.first.fingers.first, 0);
+
     for (final finger in [1, 2, 3, 4, 1]) {
       await tester.ensureVisible(fretboard);
       final topLeft = tester.getTopLeft(fretboard);
       final size = tester.getSize(fretboard);
-      await tester.tapAt(topLeft + Offset(39 + (size.width - 43) / 10, 30));
+      await tester.tapAt(
+        topLeft + Offset(39 + (size.width - 43) / 10, size.height - 9),
+      );
       await tester.pumpAndSettle();
       await tester.ensureVisible(saveShapes);
       await tester.tap(saveShapes);
       await tester.pumpAndSettle();
-      final shapes = await repository.getChordShapes('Am');
+      shapes = await repository.getChordShapes('Am');
       expect(shapes.first.fingers.first, finger);
     }
     final savedShapes = await repository.getChordShapes('Am');
@@ -562,15 +678,17 @@ void main() {
     );
   });
 
-  testWidgets('exibe as ações de exportação e importação JSON', (tester) async {
+  testWidgets('exibe as ações de exportação e importação Dados', (
+    tester,
+  ) async {
     await tester.pumpWidget(CifrasApp(repository: _MemorySongRepository()));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Importar ou exportar JSON'));
+    await tester.tap(find.byTooltip('Importar ou exportar Dados'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Exportar JSON'), findsOneWidget);
-    expect(find.text('Importar JSON'), findsOneWidget);
+    expect(find.text('Exportar Dados'), findsOneWidget);
+    expect(find.text('Importar Dados'), findsOneWidget);
     expect(find.textContaining('Google Drive'), findsNothing);
   });
 
@@ -613,6 +731,7 @@ void main() {
 class _MemorySongRepository implements SongRepository {
   final List<Song> _songs = [];
   final Map<String, List<GuitarChordShape>> _chordShapes = {};
+  final Set<String> _customChords = {};
   var _nextSongId = 1;
   var _nextSectionId = 1;
 
@@ -647,6 +766,19 @@ class _MemorySongRepository implements SongRepository {
             ],
           ),
       ]);
+  }
+
+  @override
+  Future<void> replaceBackup(SongBackup backup) async {
+    await replaceSongs(backup.songs);
+    if (backup.includesChordDictionary) {
+      _customChords
+        ..clear()
+        ..addAll(backup.customChords!);
+      _chordShapes
+        ..clear()
+        ..addAll(backup.chordShapes!);
+    }
   }
 
   @override
@@ -807,5 +939,20 @@ class _MemorySongRepository implements SongRepository {
     List<GuitarChordShape> shapes,
   ) async {
     _chordShapes[chord] = List.of(shapes);
+  }
+
+  @override
+  Future<Map<String, List<GuitarChordShape>>> getSavedChordShapes() async => {
+    for (final entry in _chordShapes.entries)
+      entry.key: List.unmodifiable(entry.value),
+  };
+
+  @override
+  Future<List<String>> getCustomChords() async =>
+      List.unmodifiable(_customChords);
+
+  @override
+  Future<void> saveCustomChord(String chord) async {
+    _customChords.add(chord);
   }
 }

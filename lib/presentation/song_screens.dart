@@ -49,10 +49,47 @@ const _chordQualities = {
   'Diminuto': 'dim',
 };
 
+const _chordIntervals = {
+  '': [0, 4, 7],
+  'm': [0, 3, 7],
+  '7': [0, 4, 7, 10],
+  'maj7': [0, 4, 7, 11],
+  'm7': [0, 3, 7, 10],
+  'sus4': [0, 5, 7],
+  'dim': [0, 3, 6],
+};
+
 List<String> get _chordDictionary => [
   for (final root in _chordRoots)
-    for (final quality in _chordQualities.values) '$root$quality',
+    for (final quality in _chordQualities.values) ...[
+      '$root$quality',
+      for (final interval in _chordIntervals[quality]!.skip(1))
+        '$root$quality/${_chordRoots[(_chordPitchClasses[root]! + interval) % 12]}',
+    ],
 ];
+
+List<String> _searchChordDictionary(
+  String query, {
+  List<String> customChords = const [],
+}) {
+  final normalizedQuery = query.trim().toLowerCase();
+  final dictionary = <String>[];
+  final seen = <String>{};
+  for (final chord in [..._chordDictionary, ...customChords]) {
+    if (seen.add(chord.toLowerCase())) dictionary.add(chord);
+  }
+  final matches = dictionary
+      .where((chord) => chord.toLowerCase().contains(normalizedQuery))
+      .toList();
+  return [
+    ...matches.where(
+      (chord) => chord.toLowerCase().startsWith(normalizedQuery),
+    ),
+    ...matches.where(
+      (chord) => !chord.toLowerCase().startsWith(normalizedQuery),
+    ),
+  ];
+}
 
 enum _ChordInstrument { guitar, keyboard }
 
@@ -77,6 +114,25 @@ const _chordPitchClasses = {
   'Bb': 10,
   'B': 11,
 };
+
+String? _normalizeCustomChord(String chord) {
+  final match = RegExp(
+    r'^([A-Ga-g][#b]?)([A-Za-z0-9+#b°ø()\-]*)(?:/([A-Ga-g][#b]?))?$',
+  ).firstMatch(chord.trim());
+  if (match == null) return null;
+
+  String? normalizeNote(String? note) {
+    if (note == null) return null;
+    final normalized = '${note[0].toUpperCase()}${note.substring(1)}';
+    return _chordPitchClasses.containsKey(normalized) ? normalized : null;
+  }
+
+  final root = normalizeNote(match.group(1));
+  final bass = normalizeNote(match.group(3));
+  if (root == null || (match.group(3) != null && bass == null)) return null;
+
+  return '$root${match.group(2)!}${bass == null ? '' : '/$bass'}';
+}
 
 class _GuitarShapeTemplate {
   const _GuitarShapeTemplate({
@@ -138,6 +194,9 @@ const _guitarStrings = [
   (name: 'B', pitch: 11),
   (name: 'e', pitch: 4),
 ];
+
+double _guitarStringY(int stringIndex, double top, double stringGap) =>
+    top + stringGap * (_guitarStrings.length - 1 - stringIndex);
 
 const _guitarVisibleFretCount = 5;
 const _guitarMaximumFret = 24;
@@ -402,7 +461,7 @@ _guitarChordShapes(String chord) {
   return shapes;
 }
 
-({List<int> notes})? _chordNotes(String chord) {
+({List<int> notes, String? bassNote})? _chordNotes(String chord) {
   final match = RegExp(
     r'^([A-Ga-g][#b]?)(maj7|m7|sus4|dim|m|7)?(?:/([A-Ga-g][#b]?))?$',
     caseSensitive: false,
@@ -418,19 +477,17 @@ _guitarChordShapes(String chord) {
   final root = pitch(match.group(1));
   if (root == null) return null;
   final quality = match.group(2)?.toLowerCase() ?? '';
-  final intervals = switch (quality) {
-    'm' => [0, 3, 7],
-    '7' => [0, 4, 7, 10],
-    'maj7' => [0, 4, 7, 11],
-    'm7' => [0, 3, 7, 10],
-    'sus4' => [0, 5, 7],
-    'dim' => [0, 3, 6],
-    _ => [0, 4, 7],
-  };
+  final intervals = _chordIntervals[quality] ?? _chordIntervals['']!;
   final notes = intervals.map((interval) => (root + interval) % 12).toList();
-  final bass = pitch(match.group(3));
+  final bassNote = match.group(3);
+  final bass = pitch(bassNote);
   if (bass != null && !notes.contains(bass)) notes.insert(0, bass);
-  return (notes: notes);
+  return (
+    notes: notes,
+    bassNote: bassNote == null
+        ? null
+        : '${bassNote[0].toUpperCase()}${bassNote.substring(1)}',
+  );
 }
 
 class SongLibraryScreen extends StatefulWidget {
@@ -496,6 +553,8 @@ class _SongLibraryScreenState extends State<SongLibraryScreen> {
     }
     setState(() => _isManagingBackup = true);
     try {
+      final customChords = await widget.viewModel.getCustomChords();
+      final chordShapes = await widget.viewModel.getSavedChordShapes();
       final saveLocation = await FilePicker.saveFile(
         dialogTitle: 'Salvar backup das cifras',
         fileName: 'cifras.json',
@@ -503,7 +562,13 @@ class _SongLibraryScreenState extends State<SongLibraryScreen> {
         allowedExtensions: ['json'],
         mimeType: 'application/json',
         bytes: Uint8List.fromList(
-          utf8.encode(encodeSongBackup(widget.viewModel.songs)),
+          utf8.encode(
+            encodeSongBackup(
+              widget.viewModel.songs,
+              customChords: customChords,
+              chordShapes: chordShapes,
+            ),
+          ),
         ),
       );
       if (saveLocation != null && mounted) {
@@ -527,7 +592,7 @@ class _SongLibraryScreenState extends State<SongLibraryScreen> {
       );
       if (file == null || !mounted) return;
 
-      final songs = decodeSongBackup(utf8.decode(await file.readAsBytes()));
+      final backup = decodeSongBackup(utf8.decode(await file.readAsBytes()));
       if (!mounted) return;
       final confirmed = await showDialog<bool>(
         context: context,
@@ -535,7 +600,9 @@ class _SongLibraryScreenState extends State<SongLibraryScreen> {
           title: const Text('Substituir repertório?'),
           content: Text(
             'A importação substituirá todas as cifras atuais por '
-            '${songs.length} ${songs.length == 1 ? 'cifra' : 'cifras'}.',
+            '${backup.songs.length} '
+            '${backup.songs.length == 1 ? 'cifra' : 'cifras'}'
+            '${backup.includesChordDictionary ? ' e o dicionário de acordes' : ''}.',
           ),
           actions: [
             TextButton(
@@ -551,10 +618,12 @@ class _SongLibraryScreenState extends State<SongLibraryScreen> {
       );
       if (confirmed != true || !mounted) return;
 
-      await widget.viewModel.replaceSongs(songs);
+      await widget.viewModel.replaceBackup(backup);
       if (mounted) {
         _showError(
-          '${songs.length} ${songs.length == 1 ? 'cifra importada' : 'cifras importadas'}.',
+          '${backup.songs.length} '
+          '${backup.songs.length == 1 ? 'cifra importada' : 'cifras importadas'}'
+          '${backup.includesChordDictionary ? ' e dicionário de acordes importado' : ''}.',
         );
       }
     } catch (error) {
@@ -593,7 +662,7 @@ class _SongLibraryScreenState extends State<SongLibraryScreen> {
           ),
           PopupMenuButton<_LibraryBackupAction>(
             key: const ValueKey('backup-actions'),
-            tooltip: 'Importar ou exportar JSON',
+            tooltip: 'Importar ou exportar Dados',
             enabled: !_isManagingBackup,
             onSelected: _handleBackupAction,
             itemBuilder: (context) => const [
@@ -601,14 +670,14 @@ class _SongLibraryScreenState extends State<SongLibraryScreen> {
                 value: _LibraryBackupAction.export,
                 child: ListTile(
                   leading: Icon(Icons.file_upload_outlined),
-                  title: Text('Exportar JSON'),
+                  title: Text('Exportar Dados'),
                 ),
               ),
               PopupMenuItem(
                 value: _LibraryBackupAction.import,
                 child: ListTile(
                   leading: Icon(Icons.file_download_outlined),
-                  title: Text('Importar JSON'),
+                  title: Text('Importar Dados'),
                 ),
               ),
             ],
@@ -778,13 +847,27 @@ class _ChordDictionaryScreen extends StatefulWidget {
 class _ChordDictionaryScreenState extends State<_ChordDictionaryScreen> {
   String _search = '';
   _ChordInstrument _instrument = _ChordInstrument.guitar;
+  List<String> _customChords = const [];
+  Object? _customChordsLoadError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCustomChords();
+  }
+
+  Future<void> _loadCustomChords() async {
+    try {
+      final chords = await widget.viewModel.getCustomChords();
+      if (mounted) setState(() => _customChords = chords);
+    } catch (error) {
+      if (mounted) setState(() => _customChordsLoadError = error);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final query = _search.trim().toLowerCase();
-    final chords = _chordDictionary
-        .where((chord) => chord.toLowerCase().contains(query))
-        .toList(growable: false);
+    final chords = _searchChordDictionary(_search, customChords: _customChords);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Dicionário de acordes')),
@@ -800,6 +883,14 @@ class _ChordDictionaryScreenState extends State<_ChordDictionaryScreen> {
               prefixIcon: Icon(Icons.search),
             ),
           ),
+          if (_customChordsLoadError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Não foi possível carregar acordes salvos: '
+                '$_customChordsLoadError',
+              ),
+            ),
           const SizedBox(height: 18),
           Text(
             'Instrumento',
@@ -887,6 +978,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
       context: context,
       isScrollControlled: true,
       builder: (_) => _SectionFormSheet(
+        viewModel: widget.viewModel,
         initialTimeSignature: widget.viewModel.songs
             .firstWhere((song) => song.id == widget.songId)
             .timeSignature,
@@ -906,6 +998,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
       context: context,
       isScrollControlled: true,
       builder: (_) => _SectionFormSheet(
+        viewModel: widget.viewModel,
         initialTimeSignature: initialSection.timeSignature,
         initialSection: initialSection,
       ),
@@ -1700,6 +1793,11 @@ class _ChordDiagramSheet extends StatelessWidget {
                 const Text('Não foi possível exibir este acorde.')
               else ...[
                 _KeyboardChordDiagram(chordNotes: chordNotes),
+                if (chordNotes.bassNote != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text('Baixo: ${chordNotes.bassNote}'),
+                  ),
               ],
             ],
           ),
@@ -1935,8 +2033,9 @@ class _GuitarChordPositionState extends State<_GuitarChordPosition> {
         return;
       }
       final stringGap = neck.height / (_guitarStrings.length - 1);
-      final stringIndex = ((details.localPosition.dy - top) / stringGap)
+      final visualStringIndex = ((details.localPosition.dy - top) / stringGap)
           .round();
+      final stringIndex = _guitarStrings.length - 1 - visualStringIndex;
       if (stringIndex < 0 || stringIndex >= _guitarStrings.length) return;
 
       final frets = List<int>.of(_shape.frets);
@@ -1946,7 +2045,9 @@ class _GuitarChordPositionState extends State<_GuitarChordPosition> {
     }
 
     final stringGap = neck.height / (_guitarStrings.length - 1);
-    final stringIndex = ((details.localPosition.dy - top) / stringGap).round();
+    final visualStringIndex = ((details.localPosition.dy - top) / stringGap)
+        .round();
+    final stringIndex = _guitarStrings.length - 1 - visualStringIndex;
     if (stringIndex < 0 || stringIndex >= _guitarStrings.length) return;
 
     final fretWidth = neck.width / 5;
@@ -2121,7 +2222,7 @@ class _GuitarFretboardPainter extends CustomPainter {
       stringIndex++
     ) {
       final string = _guitarStrings[stringIndex];
-      final y = top + stringGap * stringIndex;
+      final y = _guitarStringY(stringIndex, top, stringGap);
       _drawLabel(
         canvas,
         string.name,
@@ -2172,8 +2273,8 @@ class _GuitarFretboardPainter extends CustomPainter {
       final barreFret = shape.baseFret;
       if (barreFret >= firstFret &&
           barreFret < firstFret + _guitarVisibleFretCount) {
-        final y1 = top + stringGap * barre.$1;
-        final y2 = top + stringGap * barre.$2;
+        final y1 = _guitarStringY(barre.$1, top, stringGap);
+        final y2 = _guitarStringY(barre.$2, top, stringGap);
         final x = left + fretWidth * (barreFret - firstFret + 0.5);
         canvas.drawLine(
           Offset(x, y1),
@@ -2208,7 +2309,7 @@ class _GuitarFretboardPainter extends CustomPainter {
         final fretInView = fret - firstFret;
         if (fretInView >= 0 && fretInView < _guitarVisibleFretCount) {
           final x = left + fretWidth * (fretInView + 0.5);
-          final y = top + stringGap * stringIndex;
+          final y = _guitarStringY(stringIndex, top, stringGap);
           _drawRootMarker(canvas, Offset(x, y), rootMarkerLabel);
         }
         continue;
@@ -2225,7 +2326,7 @@ class _GuitarFretboardPainter extends CustomPainter {
       final fretInView = fret - firstFret;
       if (fretInView < 0 || fretInView >= _guitarVisibleFretCount) continue;
       final x = left + fretWidth * (fretInView + 0.5);
-      final y = top + stringGap * stringIndex;
+      final y = _guitarStringY(stringIndex, top, stringGap);
       canvas.drawCircle(Offset(x, y), 11, notePaint);
       if (finger > 0) {
         _drawLabel(
@@ -2275,7 +2376,7 @@ class _GuitarFretboardPainter extends CustomPainter {
 class _KeyboardChordDiagram extends StatelessWidget {
   const _KeyboardChordDiagram({required this.chordNotes});
 
-  final ({List<int> notes}) chordNotes;
+  final ({List<int> notes, String? bassNote}) chordNotes;
 
   @override
   Widget build(BuildContext context) {
@@ -2568,10 +2669,12 @@ class _SongFormSheetState extends State<_SongFormSheet> {
 
 class _SectionFormSheet extends StatefulWidget {
   const _SectionFormSheet({
+    required this.viewModel,
     required this.initialTimeSignature,
     this.initialSection,
   });
 
+  final SongLibraryViewModel viewModel;
   final String initialTimeSignature;
   final SongSection? initialSection;
 
@@ -2585,6 +2688,8 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
   late final List<int> _measureRepetitions;
   late final List<String> _availableSectionNames;
   late final Set<String> _selectedSectionNames;
+  List<String> _customChords = const [];
+  Object? _customChordsLoadError;
   late String _timeSignature = widget.initialTimeSignature;
   String? _validationError;
   String? _sectionNameError;
@@ -2594,6 +2699,7 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
   @override
   void initState() {
     super.initState();
+    _loadCustomChords();
     final initialSection = widget.initialSection;
     final initialNames =
         initialSection?.title
@@ -2623,19 +2729,33 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
     ];
   }
 
+  Future<void> _loadCustomChords() async {
+    try {
+      final chords = await widget.viewModel.getCustomChords();
+      if (mounted) setState(() => _customChords = chords);
+    } catch (error) {
+      if (mounted) setState(() => _customChordsLoadError = error);
+    }
+  }
+
   Future<void> _addChord(int measureIndex) async {
     var chordSearch = '';
+    var isSavingCustomChord = false;
+    String? customChordSaveError;
     final chord = await showDialog<String>(
       context: context,
-      builder: (context) => StatefulBuilder(
+      builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) {
-          final matches = _chordDictionary
-              .where(
-                (chord) => chord.toLowerCase().contains(
-                  chordSearch.trim().toLowerCase(),
-                ),
-              )
-              .toList(growable: false);
+          final matches = _searchChordDictionary(
+            chordSearch,
+            customChords: _customChords,
+          );
+          final customChord = _normalizeCustomChord(chordSearch);
+          final canAddCustomChord =
+              customChord != null &&
+              !matches.any(
+                (match) => match.toLowerCase() == customChord.toLowerCase(),
+              );
           return AlertDialog(
             title: Text('Adicionar acorde ao compasso ${measureIndex + 1}'),
             content: SizedBox(
@@ -2650,7 +2770,7 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
                         setDialogState(() => chordSearch = value),
                     decoration: const InputDecoration(
                       labelText: 'Buscar acorde',
-                      hintText: 'Ex.: Am, C7 ou F#',
+                      hintText: 'Ex.: Cadd9, F#m7/A',
                       prefixIcon: Icon(Icons.search),
                     ),
                   ),
@@ -2675,6 +2795,54 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
                             ],
                           ),
                   ),
+                  if (customChord != null && canAddCustomChord) ...[
+                    if (customChordSaveError != null)
+                      Text(
+                        'Não foi possível salvar o acorde: '
+                        '$customChordSaveError',
+                      ),
+                    TextButton.icon(
+                      key: ValueKey('measure-add-custom-chord-$measureIndex'),
+                      onPressed: isSavingCustomChord
+                          ? null
+                          : () async {
+                              setDialogState(() {
+                                isSavingCustomChord = true;
+                                customChordSaveError = null;
+                              });
+                              try {
+                                await widget.viewModel.saveCustomChord(
+                                  customChord,
+                                );
+                                if (dialogContext.mounted) {
+                                  Navigator.pop(dialogContext, customChord);
+                                }
+                              } catch (error) {
+                                setDialogState(() {
+                                  isSavingCustomChord = false;
+                                  customChordSaveError = error.toString();
+                                });
+                              }
+                            },
+                      icon: isSavingCustomChord
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.add),
+                      label: Text('Adicionar "$customChord" ao dicionário'),
+                    ),
+                  ] else if (chordSearch.trim().isNotEmpty &&
+                      customChord == null)
+                    const Text(
+                      'Digite um acorde válido, como Cadd9 ou F#m7/A.',
+                    ),
+                  if (_customChordsLoadError != null)
+                    Text(
+                      'Não foi possível carregar acordes salvos: '
+                      '$_customChordsLoadError',
+                    ),
                 ],
               ),
             ),

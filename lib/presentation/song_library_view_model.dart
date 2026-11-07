@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../domain/song.dart';
+import '../domain/song_backup.dart';
 import '../domain/song_repository.dart';
 
 class SongLibraryViewModel extends ChangeNotifier {
@@ -27,6 +28,16 @@ class SongLibraryViewModel extends ChangeNotifier {
 
   Future<void> replaceSongs(List<Song> songs) async {
     await _repository.replaceSongs(songs);
+    await load();
+    if (loadError != null) {
+      throw StateError(
+        'Não foi possível atualizar a biblioteca após a importação.',
+      );
+    }
+  }
+
+  Future<void> replaceBackup(SongBackup backup) async {
+    await _repository.replaceBackup(backup);
     await load();
     if (loadError != null) {
       throw StateError(
@@ -75,4 +86,12 @@ class SongLibraryViewModel extends ChangeNotifier {
 
   Future<void> saveChordShapes(String chord, List<GuitarChordShape> shapes) =>
       _repository.saveChordShapes(chord, shapes);
+
+  Future<Map<String, List<GuitarChordShape>>> getSavedChordShapes() =>
+      _repository.getSavedChordShapes();
+
+  Future<List<String>> getCustomChords() => _repository.getCustomChords();
+
+  Future<void> saveCustomChord(String chord) =>
+      _repository.saveCustomChord(chord);
 }

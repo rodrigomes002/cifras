@@ -5,6 +5,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../domain/music_transposition.dart';
 import '../domain/song.dart';
+import '../domain/song_backup.dart';
 import '../domain/song_repository.dart';
 
 class SqliteSongRepository implements SongRepository {
@@ -17,7 +18,7 @@ class SqliteSongRepository implements SongRepository {
     final databasePath = path.join(await getDatabasesPath(), 'cifras.db');
     final openedDatabase = await openDatabase(
       databasePath,
-      version: 6,
+      version: 7,
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: (db, version) async {
         await db.execute('''
@@ -53,6 +54,11 @@ class SqliteSongRepository implements SongRepository {
             barre_start INTEGER,
             barre_end INTEGER,
             PRIMARY KEY (chord, position)
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE custom_chords (
+            chord TEXT PRIMARY KEY COLLATE NOCASE
           )
         ''');
       },
@@ -99,6 +105,13 @@ class SqliteSongRepository implements SongRepository {
           await db.execute(
             "ALTER TABLE sections ADD COLUMN measure_repetitions TEXT NOT NULL DEFAULT '[]'",
           );
+        }
+        if (oldVersion < 7) {
+          await db.execute('''
+            CREATE TABLE custom_chords (
+              chord TEXT PRIMARY KEY COLLATE NOCASE
+            )
+          ''');
         }
       },
     );
@@ -151,33 +164,68 @@ class SqliteSongRepository implements SongRepository {
   Future<void> replaceSongs(List<Song> songs) async {
     final db = await _db;
     await db.transaction((transaction) async {
-      await transaction.delete('sections');
-      await transaction.delete('songs');
+      await _replaceSongs(transaction, songs);
+    });
+  }
 
-      for (final song in songs.reversed) {
-        final songId = await transaction.insert('songs', {
-          'title': song.title,
-          'artist': song.artist,
-          'song_key': song.key,
-          'tempo': song.tempo,
-          'time_signature': song.timeSignature,
-          'is_favorite': song.isFavorite ? 1 : 0,
-        });
-        for (final section in song.sections) {
-          await transaction.insert('sections', {
-            'song_id': songId,
-            'title': section.title,
-            'measures': jsonEncode(section.measures),
-            'measure_repetitions': jsonEncode([
-              for (var index = 0; index < section.measures.length; index++)
-                section.repetitionsForMeasure(index),
-            ]),
-            'position': section.position,
-            'time_signature': section.timeSignature,
+  @override
+  Future<void> replaceBackup(SongBackup backup) async {
+    final db = await _db;
+    await db.transaction((transaction) async {
+      await _replaceSongs(transaction, backup.songs);
+      if (!backup.includesChordDictionary) return;
+
+      await transaction.delete('chord_shapes');
+      await transaction.delete('custom_chords');
+      for (final chord in backup.customChords!) {
+        await transaction.insert('custom_chords', {
+          'chord': chord,
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
+      for (final entry in backup.chordShapes!.entries) {
+        for (var position = 0; position < entry.value.length; position++) {
+          final shape = entry.value[position];
+          await transaction.insert('chord_shapes', {
+            'chord': entry.key,
+            'position': position,
+            'frets': jsonEncode(shape.frets),
+            'fingers': jsonEncode(shape.fingers),
+            'base_fret': shape.baseFret,
+            'barre_start': shape.barreStart,
+            'barre_end': shape.barreEnd,
           });
         }
       }
     });
+  }
+
+  Future<void> _replaceSongs(Transaction transaction, List<Song> songs) async {
+    await transaction.delete('sections');
+    await transaction.delete('songs');
+
+    for (final song in songs.reversed) {
+      final songId = await transaction.insert('songs', {
+        'title': song.title,
+        'artist': song.artist,
+        'song_key': song.key,
+        'tempo': song.tempo,
+        'time_signature': song.timeSignature,
+        'is_favorite': song.isFavorite ? 1 : 0,
+      });
+      for (final section in song.sections) {
+        await transaction.insert('sections', {
+          'song_id': songId,
+          'title': section.title,
+          'measures': jsonEncode(section.measures),
+          'measure_repetitions': jsonEncode([
+            for (var index = 0; index < section.measures.length; index++)
+              section.repetitionsForMeasure(index),
+          ]),
+          'position': section.position,
+          'time_signature': section.timeSignature,
+        });
+      }
+    }
   }
 
   @override
@@ -364,5 +412,49 @@ class SqliteSongRepository implements SongRepository {
         });
       }
     });
+  }
+
+  @override
+  Future<Map<String, List<GuitarChordShape>>> getSavedChordShapes() async {
+    final db = await _db;
+    final rows = await db.query(
+      'chord_shapes',
+      orderBy: 'chord COLLATE NOCASE, position ASC',
+    );
+    final shapes = <String, List<GuitarChordShape>>{};
+    for (final row in rows) {
+      final chord = row['chord']! as String;
+      shapes
+          .putIfAbsent(chord, () => [])
+          .add(
+            GuitarChordShape(
+              frets: (jsonDecode(row['frets']! as String) as List).cast<int>(),
+              fingers: (jsonDecode(row['fingers']! as String) as List)
+                  .cast<int>(),
+              baseFret: row['base_fret']! as int,
+              barreStart: row['barre_start'] as int?,
+              barreEnd: row['barre_end'] as int?,
+            ),
+          );
+    }
+    return shapes;
+  }
+
+  @override
+  Future<List<String>> getCustomChords() async {
+    final db = await _db;
+    final rows = await db.query(
+      'custom_chords',
+      orderBy: 'chord COLLATE NOCASE',
+    );
+    return [for (final row in rows) row['chord']! as String];
+  }
+
+  @override
+  Future<void> saveCustomChord(String chord) async {
+    final db = await _db;
+    await db.insert('custom_chords', {
+      'chord': chord,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 }

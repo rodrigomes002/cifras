@@ -3,47 +3,75 @@ import 'dart:convert';
 import 'song.dart';
 
 const _backupFormat = 'cifras';
-const _backupVersion = 1;
+const _backupVersion = 2;
 
-String encodeSongBackup(List<Song> songs) => const JsonEncoder.withIndent('  ')
-    .convert({
-      'format': _backupFormat,
-      'version': _backupVersion,
-      'songs': [
-        for (final song in songs)
-          {
-            'title': song.title,
-            'artist': song.artist,
-            'key': song.key,
-            'tempo': song.tempo,
-            'timeSignature': song.timeSignature,
-            'isFavorite': song.isFavorite,
-            'sections': [
-              for (final section in song.sections)
-                {
-                  'title': section.title,
-                  'measures': section.measures,
-                  'measureRepetitions': [
-                    for (
-                      var index = 0;
-                      index < section.measures.length;
-                      index++
-                    )
-                      section.repetitionsForMeasure(index),
-                  ],
-                  'position': section.position,
-                  'timeSignature': section.timeSignature,
-                },
-            ],
-          },
-      ],
-    });
+class SongBackup {
+  const SongBackup({required this.songs, this.customChords, this.chordShapes});
 
-List<Song> decodeSongBackup(String json) {
+  final List<Song> songs;
+  final List<String>? customChords;
+  final Map<String, List<GuitarChordShape>>? chordShapes;
+
+  bool get includesChordDictionary =>
+      customChords != null && chordShapes != null;
+}
+
+String encodeSongBackup(
+  List<Song> songs, {
+  required List<String> customChords,
+  required Map<String, List<GuitarChordShape>> chordShapes,
+}) => const JsonEncoder.withIndent('  ').convert({
+  'format': _backupFormat,
+  'version': _backupVersion,
+  'songs': [
+    for (final song in songs)
+      {
+        'title': song.title,
+        'artist': song.artist,
+        'key': song.key,
+        'tempo': song.tempo,
+        'timeSignature': song.timeSignature,
+        'isFavorite': song.isFavorite,
+        'sections': [
+          for (final section in song.sections)
+            {
+              'title': section.title,
+              'measures': section.measures,
+              'measureRepetitions': [
+                for (var index = 0; index < section.measures.length; index++)
+                  section.repetitionsForMeasure(index),
+              ],
+              'position': section.position,
+              'timeSignature': section.timeSignature,
+            },
+        ],
+      },
+  ],
+  'customChords': customChords,
+  'chordShapes': [
+    for (final entry in chordShapes.entries)
+      {
+        'chord': entry.key,
+        'shapes': [
+          for (final shape in entry.value)
+            {
+              'frets': shape.frets,
+              'fingers': shape.fingers,
+              'baseFret': shape.baseFret,
+              'barreStart': shape.barreStart,
+              'barreEnd': shape.barreEnd,
+            },
+        ],
+      },
+  ],
+});
+
+SongBackup decodeSongBackup(String json) {
   final decoded = jsonDecode(json);
   if (decoded is! Map<String, dynamic> ||
       decoded['format'] != _backupFormat ||
-      decoded['version'] != _backupVersion ||
+      decoded['version'] is! int ||
+      ![1, _backupVersion].contains(decoded['version']) ||
       decoded['songs'] is! List) {
     throw const FormatException(
       'O arquivo não é um backup JSON válido do Cifras.',
@@ -51,10 +79,59 @@ List<Song> decodeSongBackup(String json) {
   }
 
   final songs = decoded['songs'] as List;
-  return [
-    for (var index = 0; index < songs.length; index++)
-      _decodeSong(songs[index], index),
-  ];
+  final version = decoded['version'] as int;
+  if (version == 1) {
+    return SongBackup(
+      songs: [
+        for (var index = 0; index < songs.length; index++)
+          _decodeSong(songs[index], index),
+      ],
+    );
+  }
+
+  final customChords = _asList(decoded['customChords'], 'customChords');
+  final chordShapes = _asList(decoded['chordShapes'], 'chordShapes');
+  return SongBackup(
+    songs: [
+      for (var index = 0; index < songs.length; index++)
+        _decodeSong(songs[index], index),
+    ],
+    customChords: [
+      for (var index = 0; index < customChords.length; index++)
+        _string(customChords[index], 'customChords[$index]'),
+    ],
+    chordShapes: {
+      for (var index = 0; index < chordShapes.length; index++)
+        ..._decodeChordShapes(chordShapes[index], index),
+    },
+  );
+}
+
+Map<String, List<GuitarChordShape>> _decodeChordShapes(
+  Object? value,
+  int index,
+) {
+  final path = 'chordShapes[$index]';
+  final map = _asMap(value, path);
+  final chord = _string(map['chord'], '$path.chord');
+  final shapes = _asList(map['shapes'], '$path.shapes');
+  return {
+    chord: [
+      for (var shapeIndex = 0; shapeIndex < shapes.length; shapeIndex++)
+        _decodeChordShape(shapes[shapeIndex], '$path.shapes[$shapeIndex]'),
+    ],
+  };
+}
+
+GuitarChordShape _decodeChordShape(Object? value, String path) {
+  final map = _asMap(value, path);
+  return GuitarChordShape(
+    frets: _intList(map['frets'], '$path.frets'),
+    fingers: _intList(map['fingers'], '$path.fingers'),
+    baseFret: _int(map['baseFret'], '$path.baseFret'),
+    barreStart: _nullableInt(map['barreStart'], '$path.barreStart'),
+    barreEnd: _nullableInt(map['barreEnd'], '$path.barreEnd'),
+  );
 }
 
 Song _decodeSong(Object? value, int index) {
@@ -114,6 +191,14 @@ Map<String, dynamic> _asMap(Object? value, String path) {
 List<Object?> _asList(Object? value, String path) {
   if (value is List<Object?>) return value;
   throw FormatException('$path deve ser uma lista JSON.');
+}
+
+List<int> _intList(Object? value, String path) {
+  final list = _asList(value, path);
+  return [
+    for (var index = 0; index < list.length; index++)
+      _int(list[index], '$path[$index]'),
+  ];
 }
 
 String _string(Object? value, String path) {

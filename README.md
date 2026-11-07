@@ -26,11 +26,14 @@ pré-refrão, refrão, ponte, solo e final, e distribua os acordes por compassos
    seus diagramas de violão ou teclado. Na tela da cifra, também escolha
    **Violão** ou **Teclado** e toque em um acorde para ver sua forma. No violão,
    são mostradas duas opções: uma com a tônica na 5ª corda e outra na 6ª.
-5. As cifras ficam salvas localmente em SQLite no dispositivo.
-6. No menu da biblioteca, use **Exportar JSON** para gerar um backup completo
-   das cifras e escolher onde salvar o arquivo `cifras.json`. Use
-   **Importar JSON** para selecionar um backup salvo; a importação substitui
-   todo o repertório atual após confirmação.
+5. As cifras, acordes personalizados e diagramas de violão editados ficam
+   salvos localmente em SQLite no dispositivo.
+6. No menu da biblioteca, use **Exportar Dados** para gerar um backup completo
+   das cifras e do dicionário de acordes e escolher onde salvar o arquivo
+   `cifras.json`. Use
+   **Importar Dados** para selecionar um backup salvo; a importação substitui
+   o repertório e o dicionário atuais após confirmação. Backups da versão
+   anterior continuam compatíveis.
 
 ## Executar
 
