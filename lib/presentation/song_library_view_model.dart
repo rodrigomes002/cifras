@@ -60,6 +60,11 @@ class SongLibraryViewModel extends ChangeNotifier {
     await load();
   }
 
+  Future<void> updateSection(int sectionId, NewSection section) async {
+    await _repository.updateSection(sectionId, section);
+    await load();
+  }
+
   Future<void> deleteSection(int sectionId) async {
     await _repository.deleteSection(sectionId);
     await load();

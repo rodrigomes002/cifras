@@ -5,8 +5,8 @@ import 'song.dart';
 const _backupFormat = 'cifras';
 const _backupVersion = 1;
 
-String encodeSongBackup(List<Song> songs) =>
-    const JsonEncoder.withIndent('  ').convert({
+String encodeSongBackup(List<Song> songs) => const JsonEncoder.withIndent('  ')
+    .convert({
       'format': _backupFormat,
       'version': _backupVersion,
       'songs': [
@@ -23,6 +23,14 @@ String encodeSongBackup(List<Song> songs) =>
                 {
                   'title': section.title,
                   'measures': section.measures,
+                  'measureRepetitions': [
+                    for (
+                      var index = 0;
+                      index < section.measures.length;
+                      index++
+                    )
+                      section.repetitionsForMeasure(index),
+                  ],
                   'position': section.position,
                   'timeSignature': section.timeSignature,
                 },
@@ -71,12 +79,27 @@ SongSection _decodeSection(Object? value, int songIndex, int sectionIndex) {
   final path = 'songs[$songIndex].sections[$sectionIndex]';
   final map = _asMap(value, path);
   final measures = _asList(map['measures'], '$path.measures');
+  final measureRepetitions = map.containsKey('measureRepetitions')
+      ? _asList(map['measureRepetitions'], '$path.measureRepetitions')
+      : List<Object?>.filled(measures.length, 1);
+  if (measureRepetitions.length != measures.length) {
+    throw FormatException(
+      '$path.measureRepetitions deve ter o mesmo tamanho de measures.',
+    );
+  }
   return SongSection(
     songId: 0,
     title: _string(map['title'], '$path.title'),
     measures: [
       for (var index = 0; index < measures.length; index++)
         _string(measures[index], '$path.measures[$index]'),
+    ],
+    measureRepetitions: [
+      for (var index = 0; index < measureRepetitions.length; index++)
+        _positiveInt(
+          measureRepetitions[index],
+          '$path.measureRepetitions[$index]',
+        ),
     ],
     position: _int(map['position'], '$path.position'),
     timeSignature: _string(map['timeSignature'], '$path.timeSignature'),
@@ -101,6 +124,12 @@ String _string(Object? value, String path) {
 int _int(Object? value, String path) {
   if (value is int) return value;
   throw FormatException('$path deve ser um número inteiro.');
+}
+
+int _positiveInt(Object? value, String path) {
+  final result = _int(value, path);
+  if (result > 0) return result;
+  throw FormatException('$path deve ser um número inteiro positivo.');
 }
 
 int? _nullableInt(Object? value, String path) {

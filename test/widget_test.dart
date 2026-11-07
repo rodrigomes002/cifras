@@ -25,6 +25,7 @@ void main() {
             songId: 12,
             title: 'Refrão',
             measures: ['Am G', 'C'],
+            measureRepetitions: [2, 3],
             position: 2,
             timeSignature: '5/4',
           ),
@@ -44,6 +45,7 @@ void main() {
     expect(decoded.single.sections, hasLength(1));
     expect(decoded.single.sections.single.title, 'Refrão');
     expect(decoded.single.sections.single.measures, ['Am G', 'C']);
+    expect(decoded.single.sections.single.measureRepetitions, [2, 3]);
     expect(decoded.single.sections.single.position, 2);
     expect(decoded.single.sections.single.timeSignature, '5/4');
   });
@@ -60,6 +62,22 @@ void main() {
       ),
       throwsFormatException,
     );
+  });
+
+  test('backup antigo usa uma repetição por compasso', () {
+    final decoded = decodeSongBackup('''
+      {"format":"cifras","version":1,"songs":[{
+        "title":"Canção","artist":"Artista","key":"C","tempo":null,
+        "timeSignature":"4/4","isFavorite":false,"sections":[{
+          "title":"Verso","measures":["C","G"],"position":0,
+          "timeSignature":"4/4"
+        }]
+      }]}
+    ''');
+
+    expect(decoded.single.sections.single.measureRepetitions, [1, 1]);
+    expect(decoded.single.sections.single.repetitionsForMeasure(0), 1);
+    expect(decoded.single.sections.single.repetitionsForMeasure(1), 1);
   });
 
   test('compassos são separados e espaços excedentes são normalizados', () {
@@ -134,7 +152,24 @@ void main() {
     await tester.tap(find.text('Adicionar seção'));
     await tester.pumpAndSettle();
     expect(find.text('4/4'), findsOneWidget);
-    await tester.tap(find.byType(DropdownButtonFormField<String>).at(1));
+    await tester.tap(find.byKey(const ValueKey('section-part-Verso')));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<DropdownButtonFormField<int>>(
+            find.byKey(const ValueKey('measure-repetitions-0')),
+          )
+          .initialValue,
+      1,
+    );
+    await tester.tap(find.byKey(const ValueKey('measure-repetitions-0')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('2x').last);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('section-time-signature')),
+    );
+    await tester.tap(find.byKey(const ValueKey('section-time-signature')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('5/4').last);
     await tester.pumpAndSettle();
@@ -150,12 +185,24 @@ void main() {
     await tester.ensureVisible(find.text('Novo compasso'));
     await tester.tap(find.text('Novo compasso'));
     await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<DropdownButtonFormField<int>>(
+            find.byKey(const ValueKey('measure-repetitions-1')),
+          )
+          .initialValue,
+      1,
+    );
     await tester.enterText(
       find.byKey(const ValueKey('section-chord-dictionary-search')),
       'C',
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('section-dictionary-chord-C')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('measure-repetitions-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('3x').last);
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Novo compasso'));
     await tester.tap(find.text('Novo compasso'));
@@ -174,14 +221,51 @@ void main() {
     await tester.tap(find.text('Salvar seção'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Intro'), findsOneWidget);
+    expect(find.text('Intro / Verso'), findsOneWidget);
     expect(find.text('Compasso: 5/4'), findsOneWidget);
     expect(find.text('COMPASSO 1'), findsOneWidget);
+    expect(find.text('2x'), findsOneWidget);
     expect(find.text('Am'), findsNWidgets(2));
     expect(find.text('C'), findsOneWidget);
     expect(find.text('D'), findsNothing);
     expect(find.text('COMPASSO 2'), findsOneWidget);
+    expect(find.text('3x'), findsOneWidget);
     expect(find.textContaining('letra'), findsNothing);
+
+    final sectionId = repository._songs.single.sections.single.id;
+    final editButton = find.byKey(ValueKey('edit-section-$sectionId'));
+    expect(editButton, findsOneWidget);
+    await tester.tap(editButton);
+    await tester.pumpAndSettle();
+    expect(find.text('Editar seção'), findsOneWidget);
+    final firstRepetition = find.byKey(const ValueKey('measure-repetitions-0'));
+    await tester.ensureVisible(firstRepetition);
+    expect(
+      tester.widget<DropdownButtonFormField<int>>(firstRepetition).initialValue,
+      2,
+    );
+    await tester.tap(firstRepetition);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('4x').last);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('section-part-Verso')),
+    );
+    await tester.tap(find.byKey(const ValueKey('section-part-Verso')));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('section-part-Refrão')),
+    );
+    await tester.tap(find.byKey(const ValueKey('section-part-Refrão')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Salvar alterações'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Intro / Refrão'), findsOneWidget);
+    expect(find.text('Compasso: 5/4'), findsOneWidget);
+    expect(repository._songs.single.sections, hasLength(1));
+    expect(repository._songs.single.sections.single.id, sectionId);
+    expect(repository._songs.single.sections.single.measures, ['Am', 'C']);
+    expect(repository._songs.single.sections.single.measureRepetitions, [4, 3]);
 
     await tester.tap(find.byKey(const ValueKey('song-key-next')));
     await tester.pumpAndSettle();
@@ -537,6 +621,7 @@ class _MemorySongRepository implements SongRepository {
                   songId: _nextSongId - 1,
                   title: section.title,
                   measures: section.measures,
+                  measureRepetitions: section.measureRepetitions,
                   position: section.position,
                   timeSignature: section.timeSignature,
                 ),
@@ -582,6 +667,7 @@ class _MemorySongRepository implements SongRepository {
             measures: interval == null || interval == 0
                 ? section.measures
                 : transposeMeasures(section.measures, interval),
+            measureRepetitions: section.measureRepetitions,
             position: section.position,
             timeSignature: section.timeSignature,
           ),
@@ -621,6 +707,7 @@ class _MemorySongRepository implements SongRepository {
         songId: songId,
         title: section.title,
         measures: section.measures,
+        measureRepetitions: section.measureRepetitions,
         position: sections.length,
         timeSignature: section.timeSignature,
       ),
@@ -654,6 +741,40 @@ class _MemorySongRepository implements SongRepository {
         isFavorite: song.isFavorite,
         sections: sections,
       );
+    }
+  }
+
+  @override
+  Future<void> updateSection(int sectionId, NewSection section) async {
+    for (var index = 0; index < _songs.length; index++) {
+      final song = _songs[index];
+      final sectionIndex = song.sections.indexWhere(
+        (existing) => existing.id == sectionId,
+      );
+      if (sectionIndex == -1) continue;
+
+      final sections = [...song.sections];
+      final existing = sections[sectionIndex];
+      sections[sectionIndex] = SongSection(
+        id: existing.id,
+        songId: existing.songId,
+        title: section.title,
+        measures: section.measures,
+        measureRepetitions: section.measureRepetitions,
+        position: existing.position,
+        timeSignature: section.timeSignature,
+      );
+      _songs[index] = Song(
+        id: song.id,
+        title: song.title,
+        artist: song.artist,
+        key: song.key,
+        tempo: song.tempo,
+        timeSignature: song.timeSignature,
+        isFavorite: song.isFavorite,
+        sections: sections,
+      );
+      return;
     }
   }
 

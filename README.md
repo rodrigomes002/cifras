@@ -39,6 +39,20 @@ flutter pub get
 flutter run
 ```
 
+## Windows desktop
+
+Instale o Visual Studio com a carga de trabalho **Desenvolvimento para desktop
+com C++** e habilite o Modo de Desenvolvedor do Windows para permitir links
+simbólicos. Em seguida, gere o aplicativo em modo release:
+
+```sh
+flutter pub get
+flutter build windows --release
+```
+
+O executável e os arquivos necessários para distribuição ficam em
+`build/windows/x64/runner/Release/`.
+
 ## Validar
 
 ```sh

@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart' as sqflite_ffi;
 
 import 'data/sqlite_song_repository.dart';
 import 'domain/song_repository.dart';
@@ -8,6 +10,10 @@ import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (defaultTargetPlatform == TargetPlatform.windows) {
+    sqflite_ffi.sqfliteFfiInit();
+    sqflite_ffi.databaseFactory = sqflite_ffi.databaseFactoryFfi;
+  }
   final repository = SqliteSongRepository();
   runApp(CifrasApp(repository: repository));
 }

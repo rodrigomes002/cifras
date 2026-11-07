@@ -15,6 +15,8 @@ abstract interface class SongRepository {
 
   Future<void> addSection(int songId, NewSection section);
 
+  Future<void> updateSection(int sectionId, NewSection section);
+
   Future<void> deleteSection(int sectionId);
 
   Future<List<GuitarChordShape>> getChordShapes(String chord);

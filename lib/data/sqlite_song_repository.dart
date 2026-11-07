@@ -17,7 +17,7 @@ class SqliteSongRepository implements SongRepository {
     final databasePath = path.join(await getDatabasesPath(), 'cifras.db');
     final openedDatabase = await openDatabase(
       databasePath,
-      version: 5,
+      version: 6,
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: (db, version) async {
         await db.execute('''
@@ -37,6 +37,7 @@ class SqliteSongRepository implements SongRepository {
             song_id INTEGER NOT NULL,
             title TEXT NOT NULL,
             measures TEXT NOT NULL,
+            measure_repetitions TEXT NOT NULL DEFAULT '[]',
             position INTEGER NOT NULL,
             time_signature TEXT NOT NULL DEFAULT '4/4',
             FOREIGN KEY (song_id) REFERENCES songs (id) ON DELETE CASCADE
@@ -94,6 +95,11 @@ class SqliteSongRepository implements SongRepository {
             )
           ''');
         }
+        if (oldVersion < 6) {
+          await db.execute(
+            "ALTER TABLE sections ADD COLUMN measure_repetitions TEXT NOT NULL DEFAULT '[]'",
+          );
+        }
       },
     );
     _database = openedDatabase;
@@ -118,6 +124,9 @@ class SqliteSongRepository implements SongRepository {
                   title: section['title']! as String,
                   measures: (jsonDecode(section['measures']! as String) as List)
                       .cast<String>(),
+                  measureRepetitions: (jsonDecode(
+                    section['measure_repetitions']! as String,
+                  ) as List).cast<int>(),
                   position: section['position']! as int,
                   timeSignature: section['time_signature']! as String,
                 ),
@@ -159,6 +168,10 @@ class SqliteSongRepository implements SongRepository {
             'song_id': songId,
             'title': section.title,
             'measures': jsonEncode(section.measures),
+            'measure_repetitions': jsonEncode([
+              for (var index = 0; index < section.measures.length; index++)
+                section.repetitionsForMeasure(index),
+            ]),
             'position': section.position,
             'time_signature': section.timeSignature,
           });
@@ -268,9 +281,35 @@ class SqliteSongRepository implements SongRepository {
       'song_id': songId,
       'title': section.title,
       'measures': jsonEncode(section.measures),
+      'measure_repetitions': jsonEncode([
+        for (var index = 0; index < section.measures.length; index++)
+          section.repetitionsForMeasure(index),
+      ]),
       'position': position,
       'time_signature': section.timeSignature,
     });
+  }
+
+  @override
+  Future<void> updateSection(int sectionId, NewSection section) async {
+    final db = await _db;
+    final updatedRows = await db.update(
+      'sections',
+      {
+        'title': section.title,
+        'measures': jsonEncode(section.measures),
+        'measure_repetitions': jsonEncode([
+          for (var index = 0; index < section.measures.length; index++)
+            section.repetitionsForMeasure(index),
+        ]),
+        'time_signature': section.timeSignature,
+      },
+      where: 'id = ?',
+      whereArgs: [sectionId],
+    );
+    if (updatedRows == 0) {
+      throw StateError('A seção $sectionId não foi encontrada.');
+    }
   }
 
   @override

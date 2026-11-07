@@ -901,6 +901,24 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
     }
   }
 
+  Future<void> _editSection(SongSection initialSection) async {
+    final section = await showModalBottomSheet<NewSection>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _SectionFormSheet(
+        initialTimeSignature: initialSection.timeSignature,
+        initialSection: initialSection,
+      ),
+    );
+    if (section == null || !mounted) return;
+
+    try {
+      await widget.viewModel.updateSection(initialSection.id!, section);
+    } catch (error) {
+      _showError('Não foi possível atualizar a seção: $error');
+    }
+  }
+
   Future<void> _deleteSong(Song song) async {
     final shouldDelete = await showDialog<bool>(
       context: context,
@@ -1072,6 +1090,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
                       section: section,
                       instrument: _instrument,
                       viewModel: widget.viewModel,
+                      onEdit: () => _editSection(section),
                       onDelete: () => _deleteSection(section),
                     ),
                   ),
@@ -1414,12 +1433,14 @@ class _SectionCard extends StatelessWidget {
     required this.section,
     required this.instrument,
     required this.viewModel,
+    required this.onEdit,
     required this.onDelete,
   });
 
   final SongSection section;
   final _ChordInstrument instrument;
   final SongLibraryViewModel viewModel;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   @override
@@ -1472,6 +1493,13 @@ class _SectionCard extends StatelessWidget {
                     ?.copyWith(color: AppColors.muted),
               ),
               IconButton(
+                key: ValueKey('edit-section-${section.id}'),
+                tooltip: 'Editar seção',
+                visualDensity: VisualDensity.compact,
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_outlined, size: 19),
+              ),
+              IconButton(
                 tooltip: 'Excluir seção',
                 visualDensity: VisualDensity.compact,
                 onPressed: onDelete,
@@ -1496,6 +1524,7 @@ class _SectionCard extends StatelessWidget {
                       child: _MeasureCard(
                         number: index + 1,
                         chords: section.measures[index],
+                        repetitions: section.repetitionsForMeasure(index),
                         instrument: instrument,
                         viewModel: viewModel,
                       ),
@@ -1514,12 +1543,14 @@ class _MeasureCard extends StatelessWidget {
   const _MeasureCard({
     required this.number,
     required this.chords,
+    required this.repetitions,
     required this.instrument,
     required this.viewModel,
   });
 
   final int number;
   final String chords;
+  final int repetitions;
   final _ChordInstrument instrument;
   final SongLibraryViewModel viewModel;
 
@@ -1535,13 +1566,27 @@ class _MeasureCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'COMPASSO $number',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: AppColors.muted,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.5,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'COMPASSO $number',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppColors.muted,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              if (repetitions > 1)
+                Text(
+                  '${repetitions}x',
+                  key: ValueKey('measure-repetition-label-$number'),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppColors.forest,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -2516,9 +2561,13 @@ class _SongFormSheetState extends State<_SongFormSheet> {
 }
 
 class _SectionFormSheet extends StatefulWidget {
-  const _SectionFormSheet({required this.initialTimeSignature});
+  const _SectionFormSheet({
+    required this.initialTimeSignature,
+    this.initialSection,
+  });
 
   final String initialTimeSignature;
+  final SongSection? initialSection;
 
   @override
   State<_SectionFormSheet> createState() => _SectionFormSheetState();
@@ -2526,13 +2575,48 @@ class _SectionFormSheet extends StatefulWidget {
 
 class _SectionFormSheetState extends State<_SectionFormSheet> {
   final _formKey = GlobalKey<FormState>();
-  final List<List<String>> _measures = [[]];
-  String _sectionName = _sectionNames.first;
+  late final List<List<String>> _measures;
+  late final List<int> _measureRepetitions;
+  late final List<String> _availableSectionNames;
+  late final Set<String> _selectedSectionNames;
   late String _timeSignature = widget.initialTimeSignature;
   String _chordSearch = '';
   String? _validationError;
+  String? _sectionNameError;
 
   bool get _hasChords => _measures.any((measure) => measure.isNotEmpty);
+
+  @override
+  void initState() {
+    super.initState();
+    final initialSection = widget.initialSection;
+    final initialNames =
+        initialSection?.title
+            .split('/')
+            .map((name) => name.trim())
+            .where((name) => name.isNotEmpty)
+            .toList() ??
+        [_sectionNames.first];
+    _availableSectionNames = [
+      ..._sectionNames,
+      ...initialNames.where((name) => !_sectionNames.contains(name)),
+    ];
+    _selectedSectionNames = initialNames.toSet();
+    _measures = initialSection == null
+        ? [[]]
+        : [
+            for (final measure in initialSection.measures)
+              measure
+                  .split(RegExp(r'\s+'))
+                  .where((chord) => chord.isNotEmpty)
+                  .toList(),
+          ];
+    if (_measures.isEmpty) _measures.add([]);
+    _measureRepetitions = [
+      for (var index = 0; index < _measures.length; index++)
+        initialSection?.repetitionsForMeasure(index) ?? 1,
+    ];
+  }
 
   void _addChord([String? chord]) {
     final selectedChord = chord;
@@ -2544,15 +2628,25 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
   }
 
   void _addMeasure() {
-    setState(() => _measures.add([]));
+    setState(() {
+      _measures.add([]);
+      _measureRepetitions.add(1);
+    });
   }
 
   void _removeMeasure(int index) {
-    setState(() => _measures.removeAt(index));
+    setState(() {
+      _measures.removeAt(index);
+      _measureRepetitions.removeAt(index);
+    });
   }
 
   void _save() {
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedSectionNames.isEmpty) {
+      setState(() => _sectionNameError = 'Selecione ao menos uma parte.');
+      return;
+    }
     if (!_hasChords) {
       setState(() => _validationError = 'Adicione ao menos um acorde.');
       return;
@@ -2560,12 +2654,18 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
     Navigator.pop(
       context,
       NewSection(
-        title: _sectionName,
+        title: _selectedSectionNames.join(' / '),
         timeSignature: _timeSignature,
         measures: _measures
-            .where((measure) => measure.isNotEmpty)
-            .map((measure) => measure.join(' '))
+            .asMap()
+            .entries
+            .where((entry) => entry.value.isNotEmpty)
+            .map((entry) => entry.value.join(' '))
             .toList(growable: false),
+        measureRepetitions: [
+          for (var index = 0; index < _measures.length; index++)
+            if (_measures[index].isNotEmpty) _measureRepetitions[index],
+        ],
       ),
     );
   }
@@ -2573,29 +2673,55 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
   @override
   Widget build(BuildContext context) {
     return _FormSheetFrame(
-      title: 'Adicionar seção',
+      title: widget.initialSection == null ? 'Adicionar seção' : 'Editar seção',
       subtitle: 'Selecione os acordes e organize-os em compassos.',
       onSave: _save,
-      saveLabel: 'Salvar seção',
+      saveLabel: widget.initialSection == null
+          ? 'Salvar seção'
+          : 'Salvar alterações',
       child: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            DropdownButtonFormField<String>(
-              initialValue: _sectionName,
-              decoration: const InputDecoration(labelText: 'Parte da música'),
-              items: _sectionNames
-                  .map(
-                    (name) => DropdownMenuItem(value: name, child: Text(name)),
-                  )
-                  .toList(growable: false),
-              onChanged: (value) {
-                if (value != null) setState(() => _sectionName = value);
-              },
+            Text(
+              'Parte da música',
+              style: Theme.of(context).textTheme.labelLarge,
             ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 0,
+              children: [
+                for (final name in _availableSectionNames)
+                  FilterChip(
+                    key: ValueKey('section-part-$name'),
+                    label: Text(name),
+                    selected: _selectedSectionNames.contains(name),
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _selectedSectionNames.add(name);
+                        } else {
+                          _selectedSectionNames.remove(name);
+                        }
+                        _sectionNameError = null;
+                      });
+                    },
+                  ),
+              ],
+            ),
+            if (_sectionNameError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  _sectionNameError!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
+              key: const ValueKey('section-time-signature'),
               initialValue: _timeSignature,
               decoration: const InputDecoration(
                 labelText: 'Fórmula de compasso',
@@ -2672,6 +2798,42 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
                             'COMPASSO ${index + 1}',
                             style: Theme.of(context).textTheme.labelMedium
                                 ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 108,
+                          child: DropdownButtonFormField<int>(
+                            key: ValueKey('measure-repetitions-$index'),
+                            initialValue: _measureRepetitions[index],
+                            decoration: const InputDecoration(
+                              labelText: 'Repetições',
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 8,
+                              ),
+                            ),
+                            items: [
+                              for (final repetitions in [
+                                1,
+                                if (_measureRepetitions[index] > 4)
+                                  _measureRepetitions[index],
+                                2,
+                                3,
+                                4,
+                              ].toSet())
+                                DropdownMenuItem(
+                                  value: repetitions,
+                                  child: Text('${repetitions}x'),
+                                ),
+                            ],
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(
+                                  () => _measureRepetitions[index] = value,
+                                );
+                              }
+                            },
                           ),
                         ),
                         if (_measures.length > 1)

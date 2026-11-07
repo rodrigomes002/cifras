@@ -28,6 +28,7 @@ class SongSection {
     required this.measures,
     required this.position,
     this.timeSignature = '4/4',
+    this.measureRepetitions = const [],
   });
 
   final int? id;
@@ -36,6 +37,10 @@ class SongSection {
   final List<String> measures;
   final int position;
   final String timeSignature;
+  final List<int> measureRepetitions;
+
+  int repetitionsForMeasure(int index) =>
+      index < measureRepetitions.length ? measureRepetitions[index] : 1;
 
   static List<String> parseMeasures(String input) => input
       .split('|')
@@ -81,9 +86,14 @@ class NewSection {
     required this.title,
     required this.measures,
     this.timeSignature = '4/4',
+    this.measureRepetitions = const [],
   });
 
   final String title;
   final List<String> measures;
   final String timeSignature;
+  final List<int> measureRepetitions;
+
+  int repetitionsForMeasure(int index) =>
+      index < measureRepetitions.length ? measureRepetitions[index] : 1;
 }
