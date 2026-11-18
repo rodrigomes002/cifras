@@ -22,8 +22,6 @@ const _sectionNames = [
   'Final',
 ];
 
-const _timeSignatures = ['2/4', '3/4', '4/4', '5/4', '6/8', '7/8', '12/8'];
-
 const _chordRoots = [
   'C',
   'C#',
@@ -94,6 +92,47 @@ List<String> _searchChordDictionary(
 enum _ChordInstrument { guitar, keyboard }
 
 enum _LibraryBackupAction { export, import }
+
+class _InstrumentSelector extends StatelessWidget {
+  const _InstrumentSelector({
+    required this.instrument,
+    required this.onChanged,
+  });
+
+  final _ChordInstrument instrument;
+  final ValueChanged<_ChordInstrument> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SegmentedButton<_ChordInstrument>(
+      showSelectedIcon: false,
+      style: ButtonStyle(
+        visualDensity: VisualDensity.compact,
+        padding: WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        ),
+      ),
+      segments: const [
+        ButtonSegment(
+          value: _ChordInstrument.guitar,
+          tooltip: 'Violão ou guitarra',
+          label: SizedBox.shrink(),
+          icon: ImageIcon(AssetImage('assets/brand/guitar-hand.png'), size: 22),
+        ),
+        ButtonSegment(
+          value: _ChordInstrument.keyboard,
+          tooltip: 'Teclado',
+          label: SizedBox.shrink(),
+          icon: Icon(Icons.piano, size: 22),
+        ),
+      ],
+      selected: {instrument},
+      onSelectionChanged: (selection) {
+        onChanged(selection.first);
+      },
+    );
+  }
+}
 
 const _chordPitchClasses = {
   'C': 0,
@@ -846,7 +885,6 @@ class _ChordDictionaryScreen extends StatefulWidget {
 
 class _ChordDictionaryScreenState extends State<_ChordDictionaryScreen> {
   String _search = '';
-  _ChordInstrument _instrument = _ChordInstrument.guitar;
   List<String> _customChords = const [];
   Object? _customChordsLoadError;
 
@@ -892,31 +930,6 @@ class _ChordDictionaryScreenState extends State<_ChordDictionaryScreen> {
               ),
             ),
           const SizedBox(height: 18),
-          Text(
-            'Instrumento',
-            style: Theme.of(context).textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 8),
-          SegmentedButton<_ChordInstrument>(
-            segments: const [
-              ButtonSegment(
-                value: _ChordInstrument.guitar,
-                label: Text('Violão'),
-                icon: Icon(Icons.music_note),
-              ),
-              ButtonSegment(
-                value: _ChordInstrument.keyboard,
-                label: Text('Teclado'),
-                icon: Icon(Icons.piano),
-              ),
-            ],
-            selected: {_instrument},
-            onSelectionChanged: (selection) {
-              setState(() => _instrument = selection.first);
-            },
-          ),
-          const SizedBox(height: 14),
           if (chords.isEmpty)
             const Padding(
               padding: EdgeInsets.all(24),
@@ -931,12 +944,7 @@ class _ChordDictionaryScreenState extends State<_ChordDictionaryScreen> {
                   chord,
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
-                subtitle: Text(
-                  _instrument == _ChordInstrument.guitar &&
-                          _guitarChordShapes(chord).isEmpty
-                      ? 'Diagrama de violão indisponível'
-                      : 'Toque para ver o diagrama',
-                ),
+                subtitle: const Text('Toque para ver o diagrama'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => showModalBottomSheet<void>(
                   context: context,
@@ -944,7 +952,7 @@ class _ChordDictionaryScreenState extends State<_ChordDictionaryScreen> {
                   isScrollControlled: true,
                   builder: (_) => _ChordDiagramSheet(
                     chord: chord,
-                    instrument: _instrument,
+                    instrument: _ChordInstrument.guitar,
                     viewModel: widget.viewModel,
                   ),
                 ),
@@ -971,8 +979,6 @@ class SongDetailScreen extends StatefulWidget {
 }
 
 class _SongDetailScreenState extends State<SongDetailScreen> {
-  _ChordInstrument _instrument = _ChordInstrument.guitar;
-
   Future<void> _addSection() async {
     final section = await showModalBottomSheet<NewSection>(
       context: context,
@@ -1128,30 +1134,6 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
               const SizedBox(height: 20),
               _SongMetadata(song: song, onKeyChanged: _changeSongKey),
               const SizedBox(height: 22),
-              Text(
-                'Instrumento',
-                style: Theme.of(context).textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 8),
-              SegmentedButton<_ChordInstrument>(
-                segments: const [
-                  ButtonSegment(
-                    value: _ChordInstrument.guitar,
-                    label: Text('Violão'),
-                    icon: Icon(Icons.music_note),
-                  ),
-                  ButtonSegment(
-                    value: _ChordInstrument.keyboard,
-                    label: Text('Teclado'),
-                    icon: Icon(Icons.piano),
-                  ),
-                ],
-                selected: {_instrument},
-                onSelectionChanged: (selection) {
-                  setState(() => _instrument = selection.first);
-                },
-              ),
               const SizedBox(height: 26),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -1181,7 +1163,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _SectionCard(
                       section: section,
-                      instrument: _instrument,
+                      instrument: _ChordInstrument.guitar,
                       viewModel: widget.viewModel,
                       onEdit: () => _editSection(section),
                       onDelete: () => _deleteSection(section),
@@ -1286,7 +1268,7 @@ class _RepertoireSummary extends StatelessWidget {
                       ?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 2),
-                const Text('Organize por partes e compassos'),
+                const Text('Organize por seções'),
               ],
             ),
           ),
@@ -1572,37 +1554,8 @@ class _SectionCard extends StatelessWidget {
                       style: Theme.of(context).textTheme.titleMedium
                           ?.copyWith(fontWeight: FontWeight.w800),
                     ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          section.timeSignature,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: AppColors.muted),
-                        ),
-                        if (section.repetitions > 1) ...[
-                          const SizedBox(width: 8),
-                          Text(
-                            '${section.repetitions}x',
-                            key: ValueKey(
-                              'section-repetition-label-${section.id}',
-                            ),
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: AppColors.forest,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          ),
-                        ],
-                      ],
-                    ),
                   ],
                 ),
-              ),
-              Text(
-                '${section.measures.length} c.',
-                style: Theme.of(context).textTheme.labelMedium
-                    ?.copyWith(color: AppColors.muted),
               ),
               IconButton(
                 key: ValueKey('edit-section-${section.id}'),
@@ -1620,97 +1573,20 @@ class _SectionCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final columns = constraints.maxWidth >= 520 ? 4 : 2;
-              final gap = 8.0;
-              final width =
-                  (constraints.maxWidth - gap * (columns - 1)) / columns;
-              return Wrap(
-                spacing: gap,
-                runSpacing: gap,
-                children: [
-                  for (var index = 0; index < section.measures.length; index++)
-                    SizedBox(
-                      width: width,
-                      child: _MeasureCard(
-                        number: index + 1,
-                        chords: section.measures[index],
-                        repetitions: section.repetitionsForMeasure(index),
-                        instrument: instrument,
-                        viewModel: viewModel,
-                      ),
-                    ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MeasureCard extends StatelessWidget {
-  const _MeasureCard({
-    required this.number,
-    required this.chords,
-    required this.repetitions,
-    required this.instrument,
-    required this.viewModel,
-  });
-
-  final int number;
-  final String chords;
-  final int repetitions;
-  final _ChordInstrument instrument;
-  final SongLibraryViewModel viewModel;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 76),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-      decoration: BoxDecoration(
-        color: AppColors.parchment,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'COMPASSO $number',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppColors.muted,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              if (repetitions > 1)
-                Text(
-                  '${repetitions}x',
-                  key: ValueKey('measure-repetition-label-$number'),
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppColors.forest,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
           Wrap(
-            spacing: 4,
-            runSpacing: 4,
+            spacing: 6,
+            runSpacing: 6,
             children: [
-              for (final chord in chords.split(RegExp(r'\s+')))
-                _ChordButton(
-                  chord: chord,
-                  instrument: instrument,
-                  viewModel: viewModel,
-                ),
+              for (final measure in section.measures)
+                for (final chord
+                    in measure
+                        .split(RegExp(r'\s+'))
+                        .where((chord) => chord.isNotEmpty))
+                  _ChordButton(
+                    chord: chord,
+                    instrument: instrument,
+                    viewModel: viewModel,
+                  ),
             ],
           ),
         ],
@@ -1765,7 +1641,7 @@ class _ChordButton extends StatelessWidget {
   }
 }
 
-class _ChordDiagramSheet extends StatelessWidget {
+class _ChordDiagramSheet extends StatefulWidget {
   const _ChordDiagramSheet({
     required this.chord,
     required this.instrument,
@@ -1777,8 +1653,23 @@ class _ChordDiagramSheet extends StatelessWidget {
   final SongLibraryViewModel viewModel;
 
   @override
+  State<_ChordDiagramSheet> createState() => _ChordDiagramSheetState();
+}
+
+class _ChordDiagramSheetState extends State<_ChordDiagramSheet> {
+  late _ChordInstrument _instrument;
+
+  @override
+  void initState() {
+    super.initState();
+    _instrument = widget.viewModel.useKeyboardForChords
+        ? _ChordInstrument.keyboard
+        : _ChordInstrument.guitar;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final chordNotes = _chordNotes(chord);
+    final chordNotes = _chordNotes(widget.chord);
     return SafeArea(
       child: SingleChildScrollView(
         child: Padding(
@@ -1791,7 +1682,7 @@ class _ChordDiagramSheet extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      chord,
+                      widget.chord,
                       style: Theme.of(context).textTheme.headlineSmall
                           ?.copyWith(
                             color: AppColors.forest,
@@ -1806,8 +1697,22 @@ class _ChordDiagramSheet extends StatelessWidget {
                   ),
                 ],
               ),
-              if (instrument == _ChordInstrument.guitar)
-                _GuitarChordDiagram(chord: chord, viewModel: viewModel)
+              const SizedBox(height: 12),
+              _InstrumentSelector(
+                instrument: _instrument,
+                onChanged: (instrument) {
+                  setState(() => _instrument = instrument);
+                  widget.viewModel.setUseKeyboardForChords(
+                    instrument == _ChordInstrument.keyboard,
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+              if (_instrument == _ChordInstrument.guitar)
+                _GuitarChordDiagram(
+                  chord: widget.chord,
+                  viewModel: widget.viewModel,
+                )
               else if (chordNotes == null)
                 const Text('Não foi possível exibir este acorde.')
               else ...[
@@ -2535,7 +2440,7 @@ class _EmptySections extends StatelessWidget {
           SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Adicione uma parte e distribua os acordes em compassos.',
+              'Adicione uma parte e organize a sequência de acordes.',
             ),
           ),
         ],
@@ -2703,9 +2608,7 @@ class _SectionFormSheet extends StatefulWidget {
 
 class _SectionFormSheetState extends State<_SectionFormSheet> {
   final _formKey = GlobalKey<FormState>();
-  late final List<List<String>> _measures;
-  late final List<int> _measureRepetitions;
-  late int _sectionRepetitions;
+  late final List<String> _chords;
   late final List<String> _availableSectionNames;
   late final Set<String> _selectedSectionNames;
   List<String> _customChords = const [];
@@ -2714,14 +2617,13 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
   String? _validationError;
   String? _sectionNameError;
 
-  bool get _hasChords => _measures.any((measure) => measure.isNotEmpty);
+  bool get _hasChords => _chords.isNotEmpty;
 
   @override
   void initState() {
     super.initState();
     _loadCustomChords();
     final initialSection = widget.initialSection;
-    _sectionRepetitions = initialSection?.repetitions ?? 1;
     final initialNames =
         initialSection?.title
             .split('/')
@@ -2734,20 +2636,16 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
       ...initialNames.where((name) => !_sectionNames.contains(name)),
     ];
     _selectedSectionNames = initialNames.toSet();
-    _measures = initialSection == null
-        ? [[]]
+    _chords = initialSection == null
+        ? []
         : [
             for (final measure in initialSection.measures)
-              measure
-                  .split(RegExp(r'\s+'))
-                  .where((chord) => chord.isNotEmpty)
-                  .toList(),
+              for (final chord
+                  in measure
+                      .split(RegExp(r'\s+'))
+                      .where((chord) => chord.isNotEmpty))
+                chord,
           ];
-    if (_measures.isEmpty) _measures.add([]);
-    _measureRepetitions = [
-      for (var index = 0; index < _measures.length; index++)
-        initialSection?.repetitionsForMeasure(index) ?? 1,
-    ];
   }
 
   Future<void> _loadCustomChords() async {
@@ -2759,7 +2657,7 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
     }
   }
 
-  Future<void> _addChord(int measureIndex) async {
+  Future<void> _addChord() async {
     var chordSearch = '';
     var isSavingCustomChord = false;
     String? customChordSaveError;
@@ -2778,14 +2676,14 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
                 (match) => match.toLowerCase() == customChord.toLowerCase(),
               );
           return AlertDialog(
-            title: Text('Adicionar acorde ao compasso ${measureIndex + 1}'),
+            title: const Text('Adicionar acorde à seção'),
             content: SizedBox(
               width: 380,
               height: 320,
               child: Column(
                 children: [
                   TextField(
-                    key: ValueKey('measure-chord-search-$measureIndex'),
+                    key: const ValueKey('section-chord-search'),
                     autofocus: true,
                     onChanged: (value) =>
                         setDialogState(() => chordSearch = value),
@@ -2804,7 +2702,7 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
                               for (final chord in matches)
                                 ListTile(
                                   key: ValueKey(
-                                    'measure-dictionary-chord-$measureIndex-$chord',
+                                    'section-dictionary-chord-$chord',
                                   ),
                                   dense: true,
                                   title: Text(chord),
@@ -2823,7 +2721,7 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
                         '$customChordSaveError',
                       ),
                     TextButton.icon(
-                      key: ValueKey('measure-add-custom-chord-$measureIndex'),
+                      key: const ValueKey('section-add-custom-chord'),
                       onPressed: isSavingCustomChord
                           ? null
                           : () async {
@@ -2873,22 +2771,8 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
     );
     if (chord == null || !mounted) return;
     setState(() {
-      _measures[measureIndex].add(chord);
+      _chords.add(chord);
       _validationError = null;
-    });
-  }
-
-  void _addMeasure() {
-    setState(() {
-      _measures.add([]);
-      _measureRepetitions.add(1);
-    });
-  }
-
-  void _removeMeasure(int index) {
-    setState(() {
-      _measures.removeAt(index);
-      _measureRepetitions.removeAt(index);
     });
   }
 
@@ -2907,17 +2791,9 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
       NewSection(
         title: _selectedSectionNames.join(' / '),
         timeSignature: _timeSignature,
-        repetitions: _sectionRepetitions,
-        measures: _measures
-            .asMap()
-            .entries
-            .where((entry) => entry.value.isNotEmpty)
-            .map((entry) => entry.value.join(' '))
-            .toList(growable: false),
-        measureRepetitions: [
-          for (var index = 0; index < _measures.length; index++)
-            if (_measures[index].isNotEmpty) _measureRepetitions[index],
-        ],
+        repetitions: widget.initialSection?.repetitions ?? 1,
+        measures: _chords.isEmpty ? const [] : [_chords.join(' ')],
+        measureRepetitions: const [1],
       ),
     );
   }
@@ -2926,7 +2802,7 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
   Widget build(BuildContext context) {
     return _FormSheetFrame(
       title: widget.initialSection == null ? 'Adicionar seção' : 'Editar seção',
-      subtitle: 'Selecione os acordes e organize-os em compassos.',
+      subtitle: 'Selecione a parte da música e organize os acordes.',
       onSave: _save,
       saveLabel: widget.initialSection == null
           ? 'Salvar seção'
@@ -2971,151 +2847,44 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
               ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              key: const ValueKey('section-time-signature'),
-              initialValue: _timeSignature,
-              decoration: const InputDecoration(
-                labelText: 'Fórmula de compasso',
-              ),
-              items: _timeSignatures
-                  .map(
-                    (signature) => DropdownMenuItem(
-                      value: signature,
-                      child: Text(signature),
-                    ),
-                  )
-                  .toList(growable: false),
-              onChanged: (value) {
-                if (value != null) setState(() => _timeSignature = value);
-              },
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<int>(
-              key: const ValueKey('section-repetitions'),
-              initialValue: _sectionRepetitions,
-              decoration: const InputDecoration(
-                labelText: 'Repetições da seção',
-              ),
-              items: [
-                for (final repetitions in [
-                  1,
-                  if (_sectionRepetitions > 4) _sectionRepetitions,
-                  2,
-                  3,
-                  4,
-                ].toSet())
-                  DropdownMenuItem(
-                    value: repetitions,
-                    child: Text('${repetitions}x'),
-                  ),
-              ],
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() => _sectionRepetitions = value);
-                }
-              },
-            ),
-            const SizedBox(height: 12),
-            const SizedBox(height: 12),
             const SizedBox(height: 4),
-            for (var index = 0; index < _measures.length; index++) ...[
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.parchment,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.parchment,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_chords.isNotEmpty)
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
-                        Expanded(
-                          child: Text(
-                            'COMPASSO ${index + 1}',
-                            style: Theme.of(context).textTheme.labelMedium
-                                ?.copyWith(fontWeight: FontWeight.w700),
-                          ),
-                        ),
-                        SizedBox(
-                          width: 108,
-                          child: DropdownButtonFormField<int>(
-                            key: ValueKey('measure-repetitions-$index'),
-                            initialValue: _measureRepetitions[index],
-                            decoration: const InputDecoration(
-                              labelText: 'Repetições',
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 8,
-                              ),
-                            ),
-                            items: [
-                              for (final repetitions in [
-                                1,
-                                if (_measureRepetitions[index] > 4)
-                                  _measureRepetitions[index],
-                                2,
-                                3,
-                                4,
-                              ].toSet())
-                                DropdownMenuItem(
-                                  value: repetitions,
-                                  child: Text('${repetitions}x'),
-                                ),
-                            ],
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(
-                                  () => _measureRepetitions[index] = value,
-                                );
-                              }
+                        for (final chord in _chords)
+                          InputChip(
+                            label: Text(chord),
+                            onDeleted: () {
+                              setState(() => _chords.remove(chord));
                             },
-                          ),
-                        ),
-                        if (_measures.length > 1)
-                          IconButton(
-                            tooltip: 'Remover compasso',
-                            visualDensity: VisualDensity.compact,
-                            onPressed: () => _removeMeasure(index),
-                            icon: const Icon(Icons.delete_outline, size: 19),
                           ),
                       ],
                     ),
-                    if (_measures[index].isNotEmpty)
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          for (final chord in _measures[index])
-                            InputChip(
-                              label: Text(chord),
-                              onDeleted: () {
-                                setState(() => _measures[index].remove(chord));
-                              },
-                            ),
-                        ],
-                      ),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton.icon(
-                        key: ValueKey('measure-add-chord-$index'),
-                        onPressed: () => _addChord(index),
-                        icon: const Icon(Icons.add),
-                        label: const Text('Adicionar acorde'),
-                      ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      key: const ValueKey('section-add-chord'),
+                      onPressed: _addChord,
+                      icon: const Icon(Icons.add),
+                      label: const Text('Adicionar acorde'),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-            TextButton.icon(
-              onPressed: _addMeasure,
-              icon: const Icon(Icons.add),
-              label: const Text('Novo compasso'),
             ),
             if (_validationError != null)
               Padding(

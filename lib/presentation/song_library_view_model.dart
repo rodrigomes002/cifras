@@ -11,6 +11,13 @@ class SongLibraryViewModel extends ChangeNotifier {
   List<Song> songs = const [];
   bool isLoading = true;
   Object? loadError;
+  bool useKeyboardForChords = false;
+
+  void setUseKeyboardForChords(bool value) {
+    if (useKeyboardForChords == value) return;
+    useKeyboardForChords = value;
+    notifyListeners();
+  }
 
   Future<void> load() async {
     isLoading = true;
