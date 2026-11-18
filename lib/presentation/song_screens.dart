@@ -1573,21 +1573,32 @@ class _SectionCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final measure in section.measures)
-                for (final chord
-                    in measure
-                        .split(RegExp(r'\s+'))
-                        .where((chord) => chord.isNotEmpty))
-                  _ChordButton(
-                    chord: chord,
-                    instrument: instrument,
-                    viewModel: viewModel,
-                  ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = constraints.maxWidth >= 520 ? 4 : 2;
+              const gap = 6.0;
+              final width =
+                  (constraints.maxWidth - gap * (columns - 1)) / columns;
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: [
+                  for (final measure in section.measures)
+                    for (final chord
+                        in measure
+                            .split(RegExp(r'\s+'))
+                            .where((chord) => chord.isNotEmpty))
+                      SizedBox(
+                        width: width,
+                        child: _ChordButton(
+                          chord: chord,
+                          instrument: instrument,
+                          viewModel: viewModel,
+                        ),
+                      ),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -1626,12 +1637,14 @@ class _ChordButton extends StatelessWidget {
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-            child: Text(
-              chord,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: AppColors.forest,
-                fontWeight: FontWeight.w800,
-                fontFamily: 'monospace',
+            child: Center(
+              child: Text(
+                chord,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: AppColors.forest,
+                  fontWeight: FontWeight.w800,
+                  fontFamily: 'monospace',
+                ),
               ),
             ),
           ),
