@@ -42,6 +42,33 @@ flutter pub get
 flutter run
 ```
 
+## Android
+
+Para executar em um emulador, inicie-o pelo Android Studio. Para usar um
+celular, ative as opções de desenvolvedor e a depuração USB e autorize o
+computador quando solicitado. Verifique a configuração do Android e liste os
+dispositivos disponíveis:
+
+```sh
+flutter doctor
+flutter devices
+```
+
+Execute no dispositivo desejado usando o ID exibido por `flutter devices`
+(ou use `flutter run` se houver apenas um dispositivo conectado):
+
+```sh
+flutter run -d ID_DO_DISPOSITIVO
+```
+
+Para gerar um APK de release, execute:
+
+```sh
+flutter build apk --release
+```
+
+O APK fica em `build/app/outputs/flutter-apk/app-release.apk`.
+
 ## Windows desktop
 
 Instale o Visual Studio com a carga de trabalho **Desenvolvimento para desktop

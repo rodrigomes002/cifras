@@ -5,6 +5,7 @@ import 'package:cifras/domain/song_repository.dart';
 import 'package:cifras/main.dart';
 import 'package:cifras/presentation/cifras_logo.dart';
 import 'package:cifras/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -166,6 +167,172 @@ void main() {
     expect(find.text('Fórmula de compasso'), findsNothing);
     expect(find.text('COMPASSO'), findsNothing);
     expect(find.text('Repetições da seção'), findsNothing);
+  });
+
+  testWidgets('caixas dos acordes acompanham o tamanho do nome', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = _MemorySongRepository();
+    await repository.replaceSongs([
+      const Song(
+        title: 'Canção teste',
+        artist: '',
+        key: 'C',
+        tempo: null,
+        sections: [
+          SongSection(
+            songId: 1,
+            title: 'Verso',
+            measures: ['C Am7'],
+            position: 0,
+          ),
+        ],
+      ),
+    ]);
+
+    await tester.pumpWidget(CifrasApp(repository: repository));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Canção teste'));
+    await tester.pumpAndSettle();
+
+    final shortChordWidth = tester
+        .getSize(find.byTooltip('Ver acorde de C'))
+        .width;
+    final longChordWidth = tester
+        .getSize(find.byTooltip('Ver acorde de Am7'))
+        .width;
+    expect(shortChordWidth, lessThan(longChordWidth));
+    expect(shortChordWidth, lessThan(100));
+  });
+
+  testWidgets('modo ao vivo destaca seções, acordes e tamanho do texto', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = _MemorySongRepository();
+    await repository.replaceSongs([
+      const Song(
+        title: 'Canção ao vivo',
+        artist: 'Artista',
+        key: 'Am',
+        tempo: 96,
+        sections: [
+          SongSection(
+            songId: 1,
+            title: 'Verso',
+            measures: ['Am G', 'C'],
+            position: 0,
+            repetitions: 2,
+            measureRepetitions: [1, 3],
+          ),
+          SongSection(
+            songId: 1,
+            title: 'Refrão',
+            measures: ['F Dm'],
+            position: 1,
+          ),
+        ],
+      ),
+    ]);
+
+    await tester.pumpWidget(CifrasApp(repository: repository));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Canção ao vivo'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('open-live-mode')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cifra ao vivo'), findsOneWidget);
+    expect(find.text('Canção ao vivo'), findsOneWidget);
+    expect(find.text('Verso'), findsOneWidget);
+    expect(find.text('Refrão'), findsOneWidget);
+    expect(find.textContaining('Compasso'), findsNothing);
+    expect(find.text('×2'), findsNothing);
+    expect(find.text('×3'), findsNothing);
+
+    final chordFinder = find.byKey(const ValueKey('live-chord-1-0'));
+    expect(tester.widget<Text>(chordFinder).data, 'Am');
+    expect(
+      tester.widget<Text>(find.byKey(const ValueKey('live-chord-1-1'))).data,
+      'G',
+    );
+    expect(
+      tester.widget<Text>(find.byKey(const ValueKey('live-chord-1-2'))).data,
+      'C',
+    );
+    expect(tester.widget<Text>(chordFinder).style!.fontSize, 36);
+    await tester.tap(find.byKey(const ValueKey('live-font-increase')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Text>(chordFinder).style!.fontSize, 40);
+  });
+
+  testWidgets('modo ao vivo troca cifras favoritas ao arrastar', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = _MemorySongRepository();
+    await repository.replaceSongs([
+      const Song(
+        title: 'Primeira favorita',
+        artist: 'Artista',
+        key: 'C',
+        tempo: null,
+        isFavorite: true,
+        sections: [
+          SongSection(
+            songId: 1,
+            title: 'Verso',
+            measures: ['C G'],
+            position: 0,
+          ),
+        ],
+      ),
+      const Song(
+        title: 'Segunda favorita',
+        artist: 'Artista',
+        key: 'Am',
+        tempo: null,
+        isFavorite: true,
+        sections: [
+          SongSection(
+            songId: 2,
+            title: 'Refrão',
+            measures: ['Am F'],
+            position: 0,
+          ),
+        ],
+      ),
+    ]);
+
+    await tester.pumpWidget(CifrasApp(repository: repository));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Primeira favorita'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('open-live-mode')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('live-song-title-1')), findsOneWidget);
+    await tester.drag(
+      find.byKey(const ValueKey('live-song-page-view')),
+      const Offset(-300, 0),
+      kind: PointerDeviceKind.mouse,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('live-song-title-2')), findsOneWidget);
   });
 
   testWidgets('cadastra uma música e organiza acordes por seção', (
@@ -669,26 +836,38 @@ void main() {
     await tester.pumpWidget(CifrasApp(repository: repository));
     await tester.pumpAndSettle();
 
-    expect(find.text('FAVORITAS'), findsOneWidget);
+    expect(find.text('AO VIVO'), findsOneWidget);
     expect(find.text('Canção favorita'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Adicionar às favoritas'));
+    final addFavoriteButtonFinder = find.ancestor(
+      of: find.byTooltip('Tocar ao vivo'),
+      matching: find.byType(IconButton),
+    );
+    expect(
+      (tester.widget<IconButton>(addFavoriteButtonFinder).icon as Icon).icon,
+      Icons.play_arrow,
+    );
+    await tester.tap(find.byTooltip('Tocar ao vivo'));
     await tester.pumpAndSettle();
 
     expect(find.text('Canção favorita'), findsOneWidget);
     expect(find.text('OUTRAS CIFRAS'), findsOneWidget);
     expect(find.text('Todas as cifras estão nas favoritas.'), findsOneWidget);
-    expect(find.byTooltip('Remover das favoritas'), findsOneWidget);
+    final favoriteButtonFinder = find.ancestor(
+      of: find.byTooltip('Remover de ao vivo'),
+      matching: find.byType(IconButton),
+    );
+    final favoriteButton = tester.widget<IconButton>(favoriteButtonFinder);
+    expect((favoriteButton.icon as Icon).icon, Icons.play_arrow);
 
-    await tester.tap(find.byTooltip('Remover das favoritas'));
+    await tester.tap(find.byTooltip('Remover de ao vivo'));
     await tester.pumpAndSettle();
-
     expect(find.text('Canção favorita'), findsOneWidget);
     expect(
       find.text('Toque no coração de uma cifra para adicioná-la aqui.'),
       findsOneWidget,
     );
-    expect(find.byTooltip('Adicionar às favoritas'), findsOneWidget);
+    expect(find.byTooltip('Tocar ao vivo'), findsOneWidget);
   });
 }
 

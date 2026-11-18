@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../domain/music_transposition.dart';
@@ -793,7 +794,7 @@ class _SongLibraryScreenState extends State<SongLibraryScreen> {
                   )
                 else ...[
                   _SongGroupHeading(
-                    title: 'FAVORITAS',
+                    title: 'AO VIVO',
                     count: favoriteSongs.length,
                   ),
                   const SizedBox(height: 10),
@@ -815,6 +816,7 @@ class _SongLibraryScreenState extends State<SongLibraryScreen> {
                         child: _SongTile(
                           song: song,
                           onToggleFavorite: () => _setSongFavorite(song, false),
+                          showPlayIcon: true,
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
                               builder: (_) => SongDetailScreen(
@@ -848,6 +850,7 @@ class _SongLibraryScreenState extends State<SongLibraryScreen> {
                         child: _SongTile(
                           song: song,
                           onToggleFavorite: () => _setSongFavorite(song, true),
+                          showPlayIcon: true,
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
                               builder: (_) => SongDetailScreen(
@@ -1098,9 +1101,22 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
             title: const Text('Cifra'),
             actions: [
               IconButton(
+                key: const ValueKey('open-live-mode'),
+                tooltip: 'Abrir modo ao vivo',
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => _LiveSongScreen(
+                      song: song,
+                      viewModel: widget.viewModel,
+                    ),
+                  ),
+                ),
+                icon: const Icon(Icons.visibility_outlined),
+              ),
+              IconButton(
                 tooltip: song.isFavorite
-                    ? 'Remover das favoritas'
-                    : 'Adicionar às favoritas',
+                    ? 'Remover de ao vivo'
+                    : 'Tocar ao vivo',
                 onPressed: () => _setSongFavorite(song, !song.isFavorite),
                 icon: Icon(
                   song.isFavorite ? Icons.favorite : Icons.favorite_border,
@@ -1179,6 +1195,227 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+class _LiveSongScreen extends StatefulWidget {
+  const _LiveSongScreen({required this.song, required this.viewModel});
+
+  final Song song;
+  final SongLibraryViewModel viewModel;
+
+  @override
+  State<_LiveSongScreen> createState() => _LiveSongScreenState();
+}
+
+class _LiveSongScreenState extends State<_LiveSongScreen> {
+  static const _minimumChordFontSize = 24.0;
+  static const _maximumChordFontSize = 56.0;
+  static const _chordFontSizeStep = 4.0;
+  static const _backgroundColor = Color(0xFF17201B);
+  static const _sectionColor = Color(0xFF34423A);
+
+  double _chordFontSize = 36;
+  late final PageController _pageController;
+
+  List<Song> get _liveSongs {
+    if (!widget.song.isFavorite) return [widget.song];
+
+    final favorites = widget.viewModel.songs
+        .where((song) => song.isFavorite)
+        .toList(growable: false);
+    return favorites.isEmpty ? [widget.song] : favorites;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final initialIndex = _liveSongs.indexWhere(
+      (song) => song.id == widget.song.id,
+    );
+    _pageController = PageController(
+      initialPage: initialIndex < 0 ? 0 : initialIndex,
+    );
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _backgroundColor,
+      appBar: AppBar(
+        backgroundColor: _backgroundColor,
+        foregroundColor: Colors.white,
+        title: const Text('Cifra ao vivo'),
+        actions: [
+          IconButton(
+            key: const ValueKey('live-font-decrease'),
+            tooltip: 'Diminuir tamanho dos acordes',
+            onPressed: _chordFontSize <= _minimumChordFontSize
+                ? null
+                : () => setState(() {
+                    _chordFontSize -= _chordFontSizeStep;
+                  }),
+            icon: const Icon(Icons.text_decrease),
+          ),
+          IconButton(
+            key: const ValueKey('live-font-increase'),
+            tooltip: 'Aumentar tamanho dos acordes',
+            onPressed: _chordFontSize >= _maximumChordFontSize
+                ? null
+                : () => setState(() {
+                    _chordFontSize += _chordFontSizeStep;
+                  }),
+            icon: const Icon(Icons.text_increase),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: SafeArea(
+        top: false,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1100),
+            child: AnimatedBuilder(
+              animation: widget.viewModel,
+              builder: (context, _) {
+                final liveSongs = _liveSongs;
+                return ScrollConfiguration(
+                  behavior: MaterialScrollBehavior().copyWith(
+                    dragDevices: {
+                      ...MaterialScrollBehavior().dragDevices,
+                      PointerDeviceKind.mouse,
+                    },
+                  ),
+                  child: PageView.builder(
+                    key: const ValueKey('live-song-page-view'),
+                    controller: _pageController,
+                    physics: liveSongs.length > 1
+                        ? const PageScrollPhysics()
+                        : const NeverScrollableScrollPhysics(),
+                    itemCount: liveSongs.length,
+                    itemBuilder: (context, index) {
+                      final song = liveSongs[index];
+                      return ListView(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                        children: [
+                          Text(
+                            song.title,
+                            key: ValueKey('live-song-title-${song.id}'),
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                          if (song.artist.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              song.artist,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(color: Colors.white70),
+                            ),
+                          ],
+                          const SizedBox(height: 24),
+                          if (song.sections.isEmpty)
+                            const Text(
+                              'Nenhuma seção cadastrada.',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 20,
+                              ),
+                            )
+                          else
+                            for (final section in song.sections) ...[
+                              _LiveSection(
+                                section: section,
+                                chordFontSize: _chordFontSize,
+                                sectionColor: _sectionColor,
+                              ),
+                              const SizedBox(height: 20),
+                            ],
+                        ],
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LiveSection extends StatelessWidget {
+  const _LiveSection({
+    required this.section,
+    required this.chordFontSize,
+    required this.sectionColor,
+  });
+
+  final SongSection section;
+  final double chordFontSize;
+  final Color sectionColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final chords = section.measures
+        .expand((measure) => measure.split(RegExp(r'\s+')))
+        .where((chord) => chord.isNotEmpty)
+        .toList(growable: false);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: sectionColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  section.title,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: AppColors.amber,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 22,
+            runSpacing: 8,
+            children: [
+              for (var chordIndex = 0; chordIndex < chords.length; chordIndex++)
+                Text(
+                  chords[chordIndex],
+                  key: ValueKey('live-chord-${section.id}-$chordIndex'),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: chordFontSize,
+                    fontWeight: FontWeight.w800,
+                    fontFamily: 'monospace',
+                    height: 1.2,
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1288,11 +1525,13 @@ class _SongTile extends StatelessWidget {
     required this.song,
     required this.onTap,
     required this.onToggleFavorite,
+    this.showPlayIcon = false,
   });
 
   final Song song;
   final VoidCallback onTap;
   final VoidCallback onToggleFavorite;
+  final bool showPlayIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -1355,16 +1594,23 @@ class _SongTile extends StatelessWidget {
               ),
               IconButton(
                 tooltip: song.isFavorite
-                    ? 'Remover das favoritas'
-                    : 'Adicionar às favoritas',
+                    ? 'Remover de ao vivo'
+                    : 'Tocar ao vivo',
                 onPressed: onToggleFavorite,
                 visualDensity: VisualDensity.compact,
                 icon: Icon(
-                  song.isFavorite ? Icons.favorite : Icons.favorite_border,
-                  color: song.isFavorite ? AppColors.clay : AppColors.muted,
+                  showPlayIcon
+                      ? Icons.play_arrow
+                      : song.isFavorite
+                      ? Icons.favorite
+                      : Icons.favorite_border,
+                  color: showPlayIcon
+                      ? AppColors.forest
+                      : song.isFavorite
+                      ? AppColors.clay
+                      : AppColors.muted,
                 ),
               ),
-              const Icon(Icons.chevron_right, color: AppColors.chevron),
             ],
           ),
         ),
@@ -1573,32 +1819,21 @@ class _SectionCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final columns = constraints.maxWidth >= 520 ? 4 : 2;
-              const gap = 6.0;
-              final width =
-                  (constraints.maxWidth - gap * (columns - 1)) / columns;
-              return Wrap(
-                spacing: gap,
-                runSpacing: gap,
-                children: [
-                  for (final measure in section.measures)
-                    for (final chord
-                        in measure
-                            .split(RegExp(r'\s+'))
-                            .where((chord) => chord.isNotEmpty))
-                      SizedBox(
-                        width: width,
-                        child: _ChordButton(
-                          chord: chord,
-                          instrument: instrument,
-                          viewModel: viewModel,
-                        ),
-                      ),
-                ],
-              );
-            },
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final measure in section.measures)
+                for (final chord
+                    in measure
+                        .split(RegExp(r'\s+'))
+                        .where((chord) => chord.isNotEmpty))
+                  _ChordButton(
+                    chord: chord,
+                    instrument: instrument,
+                    viewModel: viewModel,
+                  ),
+            ],
           ),
         ],
       ),
@@ -1637,14 +1872,12 @@ class _ChordButton extends StatelessWidget {
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-            child: Center(
-              child: Text(
-                chord,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppColors.forest,
-                  fontWeight: FontWeight.w800,
-                  fontFamily: 'monospace',
-                ),
+            child: Text(
+              chord,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: AppColors.forest,
+                fontWeight: FontWeight.w800,
+                fontFamily: 'monospace',
               ),
             ),
           ),
