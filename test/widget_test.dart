@@ -156,6 +156,7 @@ void main() {
     await tester.tap(find.text('Nova cifra'));
     await tester.pumpAndSettle();
     expect(find.text('Fórmula de compasso'), findsNothing);
+    expect(find.text('BPM (opcional)'), findsNothing);
     await tester.enterText(find.byType(TextFormField).first, 'Canção teste');
     await tester.tap(find.text('Criar cifra'));
     await tester.pumpAndSettle();
@@ -253,6 +254,16 @@ void main() {
 
     expect(find.text('Cifra ao vivo'), findsOneWidget);
     expect(find.text('Canção ao vivo'), findsOneWidget);
+    expect(find.text('Tom: Am'), findsOneWidget);
+    final liveInfo = find.byKey(const ValueKey('live-song-info-1'));
+    expect(
+      find.descendant(of: liveInfo, matching: find.text('Artista')),
+      findsOneWidget,
+    );
+    expect(
+      tester.getTopLeft(liveInfo).dy,
+      lessThan(tester.getTopLeft(find.text('Verso')).dy),
+    );
     expect(find.text('Verso'), findsOneWidget);
     expect(find.text('Refrão'), findsOneWidget);
     expect(find.textContaining('Compasso'), findsNothing);
@@ -362,6 +373,7 @@ void main() {
     await tester.tap(find.text('Canção teste'));
     await tester.pumpAndSettle();
     expect(find.text('COMPASSO'), findsNothing);
+    expect(find.text('ANDAMENTO'), findsNothing);
     await tester.tap(find.text('Adicionar seção'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('section-part-Verso')));
@@ -609,16 +621,14 @@ void main() {
     );
   });
 
-  testWidgets('mantém os cards de tom e andamento com a mesma altura', (
-    tester,
-  ) async {
+  testWidgets('exibe o tom em cartão compacto sem andamento', (tester) async {
     final repository = _MemorySongRepository();
     await repository.addSong(
       const NewSong(
         title: 'Canção teste',
         artist: '',
         key: 'Am',
-        tempo: null,
+        tempo: 96,
         timeSignature: '4/4',
       ),
     );
@@ -627,13 +637,11 @@ void main() {
     await tester.tap(find.text('Canção teste'));
     await tester.pumpAndSettle();
 
-    final keyCard = find
-        .ancestor(of: find.text('TOM'), matching: find.byType(Container))
-        .first;
-    final tempoCard = find
-        .ancestor(of: find.text('ANDAMENTO'), matching: find.byType(Container))
-        .first;
-    expect(tester.getSize(keyCard).height, tester.getSize(tempoCard).height);
+    expect(find.text('TOM'), findsOneWidget);
+    expect(find.text('ANDAMENTO'), findsNothing);
+    expect(find.text('96 BPM'), findsNothing);
+    final keyCard = find.byKey(const ValueKey('song-key-metadata'));
+    expect(tester.getSize(keyCard).width, lessThan(200));
   });
 
   testWidgets('exibe acordes no instrumento selecionado', (tester) async {

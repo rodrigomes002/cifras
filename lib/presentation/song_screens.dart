@@ -1314,14 +1314,28 @@ class _LiveSongScreenState extends State<_LiveSongScreen> {
                                   fontWeight: FontWeight.w800,
                                 ),
                           ),
-                          if (song.artist.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              song.artist,
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(color: Colors.white70),
-                            ),
-                          ],
+                          const SizedBox(height: 8),
+                          Row(
+                            key: ValueKey('live-song-info-${song.id}'),
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  song.artist,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(color: Colors.white70),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                'Tom: ${normalizeSongKey(song.key) ?? '—'}',
+                                key: ValueKey('live-song-key-${song.id}'),
+                                style: Theme.of(context).textTheme.titleSmall
+                                    ?.copyWith(color: Colors.white70),
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: 24),
                           if (song.sections.isEmpty)
                             const Text(
@@ -1678,35 +1692,16 @@ class _SongMetadata extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final gap = 8.0;
-        final width = (constraints.maxWidth - gap) / 2;
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: [
-            SizedBox(
-              width: width,
-              child: _MetadataCard(
-                label: 'TOM',
-                content: _SongKeySelector(song: song, onChanged: onKeyChanged),
-              ),
-            ),
-            SizedBox(
-              width: width,
-              child: _MetadataCard(
-                label: 'ANDAMENTO',
-                content: Text(
-                  song.tempo == null ? '—' : '${song.tempo} BPM',
-                  style: Theme.of(context).textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w800),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: SizedBox(
+        key: const ValueKey('song-key-metadata'),
+        width: 160,
+        child: _MetadataCard(
+          label: 'TOM',
+          content: _SongKeySelector(song: song, onChanged: onKeyChanged),
+        ),
+      ),
     );
   }
 }
@@ -1720,7 +1715,7 @@ class _MetadataCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -2740,27 +2735,24 @@ class _SongFormSheetState extends State<_SongFormSheet> {
   final _title = TextEditingController();
   final _artist = TextEditingController();
   final _key = TextEditingController();
-  final _tempo = TextEditingController();
 
   @override
   void dispose() {
     _title.dispose();
     _artist.dispose();
     _key.dispose();
-    _tempo.dispose();
     super.dispose();
   }
 
   void _save() {
     if (!_formKey.currentState!.validate()) return;
-    final tempoText = _tempo.text.trim();
     Navigator.pop(
       context,
       NewSong(
         title: _title.text.trim(),
         artist: _artist.text.trim(),
         key: _key.text.trim(),
-        tempo: tempoText.isEmpty ? null : int.parse(tempoText),
+        tempo: null,
       ),
     );
   }
@@ -2797,38 +2789,13 @@ class _SongFormSheetState extends State<_SongFormSheet> {
               ),
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _key,
-                    textCapitalization: TextCapitalization.characters,
-                    decoration: const InputDecoration(
-                      labelText: 'Tom (opcional)',
-                      hintText: 'Am',
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextFormField(
-                    controller: _tempo,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'BPM (opcional)',
-                      hintText: '92',
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) return null;
-                      final tempo = int.tryParse(value.trim());
-                      if (tempo == null || tempo < 1 || tempo > 400) {
-                        return 'Use um valor entre 1 e 400.';
-                      }
-                      return null;
-                    },
-                  ),
-                ),
-              ],
+            TextFormField(
+              controller: _key,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(
+                labelText: 'Tom (opcional)',
+                hintText: 'Am',
+              ),
             ),
           ],
         ),

@@ -1,7 +1,7 @@
 # Cifras
 
-Aplicativo Flutter para registrar cifras sem letras. Cadastre músicas com tom,
-andamento e fórmula de compasso, organize a estrutura em intro, verso,
+Aplicativo Flutter para registrar cifras sem letras. Cadastre músicas com tom
+e fórmula de compasso, organize a estrutura em intro, verso,
 pré-refrão, refrão, ponte, solo e final, e distribua os acordes por compassos.
 
 ## Identidade visual
@@ -14,7 +14,7 @@ pré-refrão, refrão, ponte, solo e final, e distribua os acordes por compassos
 
 ## Como usar
 
-1. Crie uma cifra e informe o nome da música; artista, tom e BPM são opcionais.
+1. Crie uma cifra e informe o nome da música; artista e tom são opcionais.
    Escolha também a fórmula de compasso, como 4/4, 3/4, 2/4 ou 6/8 (padrão: 4/4).
 2. Abra a música e adicione uma seção.
 3. Ao adicionar uma seção, escolha sua fórmula de compasso (o padrão é a fórmula
