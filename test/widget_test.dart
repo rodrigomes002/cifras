@@ -135,6 +135,12 @@ void main() {
       'F Dm',
     ]);
     expect(SongSection.parseMeasures(' |  | '), isEmpty);
+    expect(SongSection.parseMeasures('A | B | C D | A B D'), [
+      'A',
+      'B',
+      'C D',
+      'A B D',
+    ]);
   });
 
   test('transpõe acordes e baixos mantendo a qualidade', () {
@@ -851,10 +857,11 @@ void main() {
       of: find.byTooltip('Tocar ao vivo'),
       matching: find.byType(IconButton),
     );
-    expect(
-      (tester.widget<IconButton>(addFavoriteButtonFinder).icon as Icon).icon,
-      Icons.play_arrow,
+    final addFavoriteButton = tester.widget<IconButton>(
+      addFavoriteButtonFinder,
     );
+    expect((addFavoriteButton.icon as Icon).icon, Icons.play_arrow);
+    expect((addFavoriteButton.icon as Icon).color, AppColors.muted);
     await tester.tap(find.byTooltip('Tocar ao vivo'));
     await tester.pumpAndSettle();
 
@@ -867,8 +874,21 @@ void main() {
     );
     final favoriteButton = tester.widget<IconButton>(favoriteButtonFinder);
     expect((favoriteButton.icon as Icon).icon, Icons.play_arrow);
+    expect((favoriteButton.icon as Icon).color, AppColors.clay);
 
+    await tester.tap(find.text('Canção favorita'));
+    await tester.pumpAndSettle();
+    final detailFavoriteButtonFinder = find.ancestor(
+      of: find.byTooltip('Remover de ao vivo'),
+      matching: find.byType(IconButton),
+    );
+    expect(
+      (tester.widget<IconButton>(detailFavoriteButtonFinder).icon as Icon).icon,
+      Icons.play_arrow,
+    );
     await tester.tap(find.byTooltip('Remover de ao vivo'));
+    await tester.pumpAndSettle();
+    await tester.pageBack();
     await tester.pumpAndSettle();
     expect(find.text('Canção favorita'), findsOneWidget);
     expect(

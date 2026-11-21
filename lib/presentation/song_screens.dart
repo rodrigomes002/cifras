@@ -1119,7 +1119,7 @@ class _SongDetailScreenState extends State<SongDetailScreen> {
                     : 'Tocar ao vivo',
                 onPressed: () => _setSongFavorite(song, !song.isFavorite),
                 icon: Icon(
-                  song.isFavorite ? Icons.favorite : Icons.favorite_border,
+                  Icons.play_arrow,
                   color: song.isFavorite ? AppColors.clay : null,
                 ),
               ),
@@ -1381,11 +1381,6 @@ class _LiveSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final chords = section.measures
-        .expand((measure) => measure.split(RegExp(r'\s+')))
-        .where((chord) => chord.isNotEmpty)
-        .toList(growable: false);
-
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1411,21 +1406,43 @@ class _LiveSection extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Wrap(
-            spacing: 22,
+            spacing: 10,
             runSpacing: 8,
             children: [
-              for (var chordIndex = 0; chordIndex < chords.length; chordIndex++)
-                Text(
-                  chords[chordIndex],
-                  key: ValueKey('live-chord-${section.id}-$chordIndex'),
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: chordFontSize,
-                    fontWeight: FontWeight.w800,
-                    fontFamily: 'monospace',
-                    height: 1.2,
+              for (var measureIndex = 0;
+                  measureIndex < section.measures.length;
+                  measureIndex++) ...[
+                if (measureIndex > 0)
+                  Text(
+                    '|',
+                    key: ValueKey(
+                      'live-measure-separator-${section.id}-$measureIndex',
+                    ),
+                    style: TextStyle(
+                      color: Colors.white54,
+                      fontSize: chordFontSize,
+                      fontWeight: FontWeight.w800,
+                      fontFamily: 'monospace',
+                    ),
                   ),
-                ),
+                for (final chord
+                    in section.measures[measureIndex]
+                        .split(RegExp(r'\s+'))
+                        .where((chord) => chord.isNotEmpty))
+                  Text(
+                    chord,
+                    key: ValueKey(
+                      'live-chord-${section.id}-${measureIndex}-$chord',
+                    ),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: chordFontSize,
+                      fontWeight: FontWeight.w800,
+                      fontFamily: 'monospace',
+                      height: 1.2,
+                    ),
+                  ),
+              ],
             ],
           ),
         ],
@@ -1619,7 +1636,9 @@ class _SongTile extends StatelessWidget {
                       ? Icons.favorite
                       : Icons.favorite_border,
                   color: showPlayIcon
-                      ? AppColors.forest
+                      ? song.isFavorite
+                            ? AppColors.clay
+                            : AppColors.muted
                       : song.isFavorite
                       ? AppColors.clay
                       : AppColors.muted,
@@ -1815,12 +1834,25 @@ class _SectionCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Wrap(
-            spacing: 6,
+            spacing: 8,
             runSpacing: 6,
             children: [
-              for (final measure in section.measures)
+              for (var measureIndex = 0;
+                  measureIndex < section.measures.length;
+                  measureIndex++) ...[
+                if (measureIndex > 0)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 2),
+                    child: Text(
+                      '|',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ),
                 for (final chord
-                    in measure
+                    in section.measures[measureIndex]
                         .split(RegExp(r'\s+'))
                         .where((chord) => chord.isNotEmpty))
                   _ChordButton(
@@ -1828,6 +1860,7 @@ class _SectionCard extends StatelessWidget {
                     instrument: instrument,
                     viewModel: viewModel,
                   ),
+              ],
             ],
           ),
         ],
@@ -2821,7 +2854,7 @@ class _SectionFormSheet extends StatefulWidget {
 
 class _SectionFormSheetState extends State<_SectionFormSheet> {
   final _formKey = GlobalKey<FormState>();
-  late final List<String> _chords;
+  late final List<List<String>> _measures;
   late final List<String> _availableSectionNames;
   late final Set<String> _selectedSectionNames;
   List<String> _customChords = const [];
@@ -2830,7 +2863,8 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
   String? _validationError;
   String? _sectionNameError;
 
-  bool get _hasChords => _chords.isNotEmpty;
+  bool get _hasChords =>
+      _measures.any((measure) => measure.isNotEmpty);
 
   @override
   void initState() {
@@ -2849,16 +2883,20 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
       ...initialNames.where((name) => !_sectionNames.contains(name)),
     ];
     _selectedSectionNames = initialNames.toSet();
-    _chords = initialSection == null
-        ? []
+    _measures = initialSection == null
+        ? [
+            <String>[],
+          ]
         : [
-            for (final measure in initialSection.measures)
-              for (final chord
-                  in measure
-                      .split(RegExp(r'\s+'))
-                      .where((chord) => chord.isNotEmpty))
-                chord,
+            for (final measure in SongSection.parseMeasures(
+              initialSection.measures.join('|'),
+            ))
+              measure
+                  .split(RegExp(r'\s+'))
+                  .where((chord) => chord.isNotEmpty)
+                  .toList(growable: true),
           ];
+    if (_measures.isEmpty) _measures.add(<String>[]);
   }
 
   Future<void> _loadCustomChords() async {
@@ -2984,8 +3022,16 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
     );
     if (chord == null || !mounted) return;
     setState(() {
-      _chords.add(chord);
+      _measures.last.add(chord);
       _validationError = null;
+    });
+  }
+
+  void _addMeasureSeparator() {
+    setState(() {
+      if (_measures.isEmpty || _measures.last.isNotEmpty) {
+        _measures.add(<String>[]);
+      }
     });
   }
 
@@ -2999,14 +3045,18 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
       setState(() => _validationError = 'Adicione ao menos um acorde.');
       return;
     }
+    final measures = _measures
+        .map((measure) => measure.join(' '))
+        .where((measure) => measure.isNotEmpty)
+        .toList(growable: false);
     Navigator.pop(
       context,
       NewSection(
         title: _selectedSectionNames.join(' / '),
         timeSignature: _timeSignature,
         repetitions: widget.initialSection?.repetitions ?? 1,
-        measures: _chords.isEmpty ? const [] : [_chords.join(' ')],
-        measureRepetitions: const [1],
+        measures: measures,
+        measureRepetitions: List<int>.filled(measures.length, 1),
       ),
     );
   }
@@ -3073,27 +3123,58 @@ class _SectionFormSheetState extends State<_SectionFormSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (_chords.isNotEmpty)
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final chord in _chords)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      for (var measureIndex = 0;
+                          measureIndex < _measures.length;
+                          measureIndex++) ...[
+                        if (measureIndex > 0)
+                          Text(
+                            '|',
+                            key: ValueKey(
+                              'section-measure-separator-$measureIndex',
+                            ),
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        for (final chord in _measures[measureIndex])
                           InputChip(
+                            key: ValueKey(
+                              'section-chord-$measureIndex-$chord',
+                            ),
                             label: Text(chord),
                             onDeleted: () {
-                              setState(() => _chords.remove(chord));
+                              setState(
+                                () => _measures[measureIndex].remove(chord),
+                              );
                             },
                           ),
                       ],
-                    ),
+                    ],
+                  ),
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      key: const ValueKey('section-add-chord'),
-                      onPressed: _addChord,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Adicionar acorde'),
+                    child: Wrap(
+                      spacing: 8,
+                      children: [
+                        TextButton.icon(
+                          key: const ValueKey('section-add-chord'),
+                          onPressed: _addChord,
+                          icon: const Icon(Icons.add),
+                          label: const Text('Adicionar acorde'),
+                        ),
+                        TextButton.icon(
+                          key: const ValueKey('section-add-separator'),
+                          onPressed: _addMeasureSeparator,
+                          icon: const Icon(Icons.vertical_split),
+                          label: const Text('Adicionar separação'),
+                        ),
+                      ],
                     ),
                   ),
                 ],
